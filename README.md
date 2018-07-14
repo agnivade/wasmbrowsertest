@@ -14,7 +14,7 @@ Get the ChromeDriver binary:
 Build the test binary:
 
 3. `cd $GOPATH/github.com/agnivade/wasmbrowsertest/`
-4. `gotip build -o go_js_wasm_exec .`
+4. `gotip build -o go_js_wasm_exec .` (`gotip` is an alias to the tip binary. We need to build using tip to get the `application/wasm` mime type)
 
 Now we just need the ASSET_FOLDER and CHROME_DRIVER as env vars to run tests.
 
