@@ -1,6 +1,6 @@
 # wasmbrowsertest
 
-A quick hack to run wasm tests inside your browser. For now, hardcoded to Chrome.
+A quick hack to run wasm tests inside your browser. For now, works only for Chrome. Geckodriver doesn't support selenium log API.
 
 Setup steps:
 
