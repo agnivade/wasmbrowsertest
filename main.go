@@ -25,10 +25,10 @@ func main() {
 		log.Fatal("env var ASSET_FOLDER is not set.")
 	}
 
-	wasmFile := os.Args[1]
-	if wasmFile == "" {
+	if len(os.Args) < 2 {
 		log.Fatal("Please pass a wasm file as a parameter")
 	}
+	wasmFile := os.Args[1]
 
 	// Need to generate a random port every time for tests in parallel to run.
 	port, err := rand.Int(rand.Reader, big.NewInt(2000))

@@ -12,11 +12,10 @@ import (
 )
 
 type wasmServer struct {
-	wasmExec, targetWASM []byte
-	indexHTML            *template.Template
-	wasmFile             string
-	assetFolder          string
-	args                 []string
+	indexHTML   *template.Template
+	wasmFile    string
+	assetFolder string
+	args        []string
 }
 
 func (ws *wasmServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
