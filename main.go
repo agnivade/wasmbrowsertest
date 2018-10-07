@@ -59,6 +59,7 @@ func main() {
 			"args", []string{
 				"headless",
 				"verbose",
+				"unlimited-quota-for-files",
 			},
 		),
 		agouti.Desired(

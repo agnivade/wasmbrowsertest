@@ -35,9 +35,13 @@
 			throw new Error("cannot export Go (neither window nor self is defined)");
 		}
 
+		window.requestFileSystemSync  = window.requestFileSystemSync || window.webkitRequestFileSystemSync;
+		let myfs = window.requestFileSystemSync(window.TEMPORARY, 10*1024*1024 /*10MB*/);
+		console.log(myfs)
+
 		let outputBuf = "";
 		global.fs = {
-			constants: { O_WRONLY: -1, O_RDWR: -1, O_CREAT: -1, O_TRUNC: -1, O_APPEND: -1, O_EXCL: -1, O_NONBLOCK: -1, O_SYNC: -1 }, // unused
+			constants: { O_WRONLY: -1, O_RDWR: -1, O_CREAT: -1, O_TRUNC: -1, O_APPEND: -1, O_EXCL: -1 }, // unused
 			writeSync(fd, buf) {
 				outputBuf += decoder.decode(buf);
 				const nl = outputBuf.lastIndexOf("\n");
@@ -48,7 +52,10 @@
 				return buf.length;
 			},
 			openSync(path, flags, mode) {
-				const err = new Error("not implemented");
+				console.log(path)
+				console.log(flags)
+				console.log(mode)
+				const err = new Error("not implemented bla bla please");
 				err.code = "ENOSYS";
 				throw err;
 			},
@@ -179,8 +186,12 @@
 				go: {
 					// func wasmExit(code int32)
 					"runtime.wasmExit": (sp) => {
+						const code = mem().getInt32(sp + 8, true);
 						this.exited = true;
-						this.exit(mem().getInt32(sp + 8, true));
+						delete this._inst;
+						delete this._values;
+						delete this._refs;
+						this.exit(code);
 					},
 
 					// func wasmWrite(fd uintptr, p unsafe.Pointer, n int32)
@@ -331,14 +342,10 @@
 				false,
 				global,
 				this._inst.exports.mem,
-				() => { // resolveCallbackPromise
-					if (this.exited) {
-						throw new Error("bad callback: Go program has already exited");
-					}
-					setTimeout(this._resolveCallbackPromise, 0); // make sure it is asynchronous
-				},
+				this,
 			];
 			this._refs = new Map();
+			this._callbackShutdown = false;
 			this.exited = false;
 
 			const mem = new DataView(this._inst.exports.mem.buffer)
@@ -375,7 +382,12 @@
 
 			while (true) {
 				const callbackPromise = new Promise((resolve) => {
-					this._resolveCallbackPromise = resolve;
+					this._resolveCallbackPromise = () => {
+						if (this.exited) {
+							throw new Error("bad callback: Go program has already exited");
+						}
+						setTimeout(resolve, 0); // make sure it is asynchronous
+					};
 				});
 				this._inst.exports.run(argc, argv);
 				if (this.exited) {
@@ -383,6 +395,28 @@
 				}
 				await callbackPromise;
 			}
+		}
+
+		static _makeCallbackHelper(id, pendingCallbacks, go) {
+			return function() {
+				pendingCallbacks.push({ id: id, args: arguments });
+				go._resolveCallbackPromise();
+			};
+		}
+
+		static _makeEventCallbackHelper(preventDefault, stopPropagation, stopImmediatePropagation, fn) {
+			return function(event) {
+				if (preventDefault) {
+					event.preventDefault();
+				}
+				if (stopPropagation) {
+					event.stopPropagation();
+				}
+				if (stopImmediatePropagation) {
+					event.stopImmediatePropagation();
+				}
+				fn(event);
+			};
 		}
 	}
 
@@ -397,17 +431,18 @@
 		go.env = process.env;
 		go.exit = process.exit;
 		WebAssembly.instantiate(fs.readFileSync(process.argv[2]), go.importObject).then((result) => {
-			process.on("exit", () => { // Node.js exits if no callback is pending
-				if (!go.exited) {
-					console.error("error: all goroutines asleep and no JavaScript callback pending - deadlock!");
-					process.exit(1);
+			process.on("exit", (code) => { // Node.js exits if no callback is pending
+				if (code === 0 && !go.exited) {
+					// deadlock, make Go print error and stack traces
+					go._callbackShutdown = true;
+					go._inst.exports.run();
 				}
 			});
 			return go.run(result.instance);
 		}).catch((err) => {
-			console.error(err);
 			go.exited = true;
-			process.exit(1);
+			console.error(err);
+			throw err;
 		});
 	}
 })();
