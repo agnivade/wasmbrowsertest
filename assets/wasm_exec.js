@@ -35,9 +35,9 @@
 			throw new Error("cannot export Go (neither window nor self is defined)");
 		}
 
-		window.requestFileSystemSync  = window.requestFileSystemSync || window.webkitRequestFileSystemSync;
-		let myfs = window.requestFileSystemSync(window.TEMPORARY, 10*1024*1024 /*10MB*/);
-		console.log(myfs)
+		// window.requestFileSystemSync  = window.requestFileSystemSync || window.webkitRequestFileSystemSync;
+		// let myfs = window.requestFileSystemSync(window.TEMPORARY, 10*1024*1024 /*10MB*/);
+		// console.log(myfs)
 
 		let outputBuf = "";
 		global.fs = {
@@ -51,13 +51,17 @@
 				}
 				return buf.length;
 			},
-			openSync(path, flags, mode) {
-				console.log(path)
-				console.log(flags)
-				console.log(mode)
-				const err = new Error("not implemented bla bla please");
+			write(fd, buf, offset, length, position, callback) {
+				if (offset !== 0 || length !== buf.length || position !== null) {
+					throw new Error("not implemented");
+				}
+				const n = this.writeSync(fd, buf);
+				callback(null, n);
+			},
+			open(path, flags, mode, callback) {
+				const err = new Error("not implemented");
 				err.code = "ENOSYS";
-				throw err;
+				callback(err);
 			},
 		};
 	}
