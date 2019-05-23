@@ -1,6 +1,2 @@
 # ignore browser drivers
 /go_js_wasm_exec
-
-/drivers/selenium-server-standalone-3.8.1.jar
-/drivers/geckodriver-v0.19.1-linux64
-/drivers/chromedriver-linux64-2.35
