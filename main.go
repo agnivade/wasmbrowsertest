@@ -27,6 +27,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	// Generate a port between 5000 to 7000.
 	portStr := ":" + strconv.Itoa(int(port.Int64())+5000)
 
 	// Setup web server.
