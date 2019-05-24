@@ -21,7 +21,7 @@ type wasmServer struct {
 	logger     *log.Logger
 }
 
-func NewWasmServer(wasmFile string, args []string, l *log.Logger) (http.Handler, error) {
+func NewWASMServer(wasmFile string, args []string, l *log.Logger) (http.Handler, error) {
 	var err error
 	srv := &wasmServer{
 		wasmFile: wasmFile,

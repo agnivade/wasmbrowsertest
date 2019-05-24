@@ -31,7 +31,7 @@ func main() {
 	portStr := ":" + strconv.Itoa(int(port.Int64())+5000)
 
 	// Setup web server.
-	handler, err := NewWasmServer(wasmFile, os.Args[1:], logger)
+	handler, err := NewWASMServer(wasmFile, os.Args[1:], logger)
 	if err != nil {
 		logger.Fatal(err)
 	}
