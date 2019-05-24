@@ -1,26 +1,9 @@
 # wasmbrowsertest
 
-A quick hack to run wasm tests inside your browser. For now, works only for Chrome. Geckodriver doesn't support selenium log API.
+Run wasm tests easily in your browser. This is the `go_js_wasm_exec` for browsers. Run this exactly the same way you would run tests for Node, except replace the go_js_wasm_exec for node with the one built using this repo.
 
-Setup steps:
+`go build -o go_js_wasm_exec`
 
-Install the agouti package:
-1. `go get github.com/sclevine/agouti`.
+`PATH=$PATH:/directory/to/go_js_wasm_exec GOOS=js GOARCH=wasm go test`
 
-Get the ChromeDriver binary: 
-
-2. `curl 'https://chromedriver.storage.googleapis.com/2.35/chromedriver_linux64.zip'` and unzip it.
-
-Build the test binary:
-
-3. `cd $GOPATH/github.com/agnivade/wasmbrowsertest/`
-4. `gotip build -o go_js_wasm_exec .` (`gotip` is an alias to the tip binary. We need to build using tip to get the `application/wasm` mime type)
-
-Now we just need the ASSET_FOLDER and CHROME_DRIVER as env vars to run tests.
-
-5. `export ASSET_FOLDER='$GOPATH/github.com/agnivade/wasmbrowsertest/assets'`
-6. `export CHROME_DRIVER='path/to/chromedriver-linux64-2.35'`
-
-And finally we are ready to run our tests !
-
-7. `PATH=$PATH:/path/to/go_js_wasm_exec GOOS=js GOARCH=wasm ../bin/go test ./encoding/hex -v -run='^Test'`
+This tool uses the [ChromeDP](https://chromedevtools.github.io/devtools-protocol/) protocol to run the tests inside a Chrome browser. So Chrome needs to be installed in your machine.
