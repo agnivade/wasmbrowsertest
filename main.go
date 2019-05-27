@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
-	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -23,12 +22,18 @@ func main() {
 	wasmFile := os.Args[1]
 
 	// Need to generate a random port every time for tests in parallel to run.
-	port, err := rand.Int(rand.Reader, big.NewInt(2000))
+	l, err := net.Listen("tcp", "localhost:")
 	if err != nil {
 		logger.Fatal(err)
 	}
-	// Generate a port between 5000 to 7000.
-	portStr := ":" + strconv.Itoa(int(port.Int64())+5000)
+	tcpL, ok := l.(*net.TCPListener)
+	if !ok {
+		logger.Fatal("net.Listen did not return a TCPListener")
+	}
+	_, port, err := net.SplitHostPort(tcpL.Addr().String())
+	if err != nil {
+		logger.Fatal(err)
+	}
 
 	// Setup web server.
 	handler, err := NewWASMServer(wasmFile, os.Args[1:], logger)
@@ -36,7 +41,6 @@ func main() {
 		logger.Fatal(err)
 	}
 	httpServer := &http.Server{
-		Addr:    portStr,
 		Handler: handler,
 	}
 
@@ -62,7 +66,7 @@ func main() {
 
 	done := make(chan struct{})
 	go func() {
-		err := httpServer.ListenAndServe()
+		err := httpServer.Serve(l)
 		if err != http.ErrServerClosed {
 			logger.Println(err)
 		}
@@ -71,7 +75,7 @@ func main() {
 
 	exitCode := 0
 	err = chromedp.Run(ctx,
-		chromedp.Navigate(`http://localhost`+portStr),
+		chromedp.Navigate(`http://localhost:`+port),
 		chromedp.WaitEnabled(`#doneButton`),
 		chromedp.Evaluate(`exitCode;`, &exitCode),
 	)
