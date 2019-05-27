@@ -7,7 +7,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	cdpruntime "github.com/chromedp/cdproto/runtime"
@@ -20,6 +22,13 @@ func main() {
 		logger.Fatal("Please pass a wasm file as a parameter")
 	}
 	wasmFile := os.Args[1]
+	ext := path.Ext(wasmFile)
+	// net/http code does not take js/wasm path if it is a .test binary.
+	if ext == ".test" {
+		wasmFile = strings.Replace(wasmFile, ext, ".wasm", -1)
+		os.Rename(os.Args[1], wasmFile)
+		os.Args[1] = wasmFile
+	}
 
 	// Need to generate a random port every time for tests in parallel to run.
 	l, err := net.Listen("tcp", "localhost:")
