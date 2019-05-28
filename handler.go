@@ -64,7 +64,12 @@ func (ws *wasmServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ws.logger.Println(err)
 			return
 		}
-		defer f.Close()
+		defer func() {
+			err := f.Close()
+			if err != nil {
+				ws.logger.Println(err)
+			}
+		}()
 		http.ServeContent(w, r, r.URL.Path, time.Now(), f)
 	case "/wasm_exec.js":
 		w.Header().Set("Content-Type", "application/javascript")

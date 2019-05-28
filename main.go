@@ -26,7 +26,10 @@ func main() {
 	// net/http code does not take js/wasm path if it is a .test binary.
 	if ext == ".test" {
 		wasmFile = strings.Replace(wasmFile, ext, ".wasm", -1)
-		os.Rename(os.Args[1], wasmFile)
+		err := os.Rename(os.Args[1], wasmFile)
+		if err != nil {
+			logger.Fatal(err)
+		}
 		os.Args[1] = wasmFile
 	}
 
