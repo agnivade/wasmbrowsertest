@@ -1,0 +1,15 @@
+language: go
+
+env:
+- GO111MODULE=on
+
+go:
+- 1.12.x
+- tip
+
+install:
+- go build
+
+script:
+- go vet -all .
+- gofmt -l -s -w .
