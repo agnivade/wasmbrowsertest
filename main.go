@@ -73,6 +73,10 @@ func main() {
 				}
 				fmt.Printf("%s\n", s)
 			}
+		case *cdpruntime.EventExceptionThrown:
+			if ev.ExceptionDetails != nil && ev.ExceptionDetails.Exception != nil {
+				fmt.Printf("%s\n", ev.ExceptionDetails.Exception.Description)
+			}
 		}
 	})
 
