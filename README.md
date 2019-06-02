@@ -1,4 +1,4 @@
-# wasmbrowsertest
+# wasmbrowsertest [![Build Status](https://travis-ci.org/agnivade/wasmbrowsertest.svg?branch=master)](https://travis-ci.org/agnivade/wasmbrowsertest)
 
 Run Go wasm tests easily in your browser.
 
