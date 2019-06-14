@@ -50,6 +50,24 @@ Use whatever works for you.
 
 Yep. Just pass the wasm file as the first argument - `wasmbrowsertest test.wasm`.
 
+### Can I use this inside Travis ?
+
+Sure.
+
+Add these lines to your `.travis.yml`
+
+```
+addons:
+  chrome: stable
+
+install:
+- go get github.com/agnivade/wasmbrowsertest
+- mv $GOPATH/bin/wasmbrowsertest $GOPATH/bin/go_js_wasm_exec
+- export PATH=$GOPATH/bin:$PATH
+```
+
+Now, just setting `GOOS=js GOARCH=wasm` will run your tests using `wasmbrowsertest`. For other CI environments, you have to do something similar.
+
 ### What sorts of browsers are supported ?
 
 This tool uses the [ChromeDP](https://chromedevtools.github.io/devtools-protocol/) protocol to run the tests inside a Chrome browser. So Chrome or any blink-based browser will work.
