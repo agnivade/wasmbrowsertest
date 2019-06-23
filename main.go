@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/inspector"
 	cdpruntime "github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 )
 
@@ -86,6 +88,18 @@ func main() {
 			if ev.ExceptionDetails != nil && ev.ExceptionDetails.Exception != nil {
 				fmt.Printf("%s\n", ev.ExceptionDetails.Exception.Description)
 			}
+		case *target.EventTargetCrashed:
+			fmt.Printf("target crashed: status: %s, error code:%d\n", ev.Status, ev.ErrorCode)
+			err := chromedp.Cancel(ctx)
+			if err != nil {
+				logger.Printf("error in cancelling context: %v\n", err)
+			}
+		case *inspector.EventDetached:
+			fmt.Println("inspector detached: ", ev.Reason)
+			err := chromedp.Cancel(ctx)
+			if err != nil {
+				logger.Printf("error in cancelling context: %v\n", err)
+			}
 		}
 	})
 
@@ -105,7 +119,7 @@ func main() {
 		chromedp.Evaluate(`exitCode;`, &exitCode),
 	)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Println(err)
 	}
 	if exitCode != 0 {
 		defer os.Exit(1)
