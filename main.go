@@ -66,12 +66,21 @@ func main() {
 		switch ev := ev.(type) {
 		case *cdpruntime.EventConsoleAPICalled:
 			for _, arg := range ev.Args {
-				s, err := strconv.Unquote(string(arg.Value))
-				if err != nil {
-					logger.Println(err)
-					continue
+				line := string(arg.Value)
+				if ev.StackTrace != nil && len(ev.StackTrace.CallFrames) > 0 {
+					topFrame := ev.StackTrace.CallFrames[0]
+					if strings.HasSuffix(topFrame.URL, "wasm_exec.js") {
+						// Output from the test is quoted with double-quotes and whitespace-escaped.
+						// So need to treat it specially.
+						s, err := strconv.Unquote(line)
+						if err != nil {
+							logger.Printf("malformed string: %s\n", line)
+							continue
+						}
+						line = s
+					}
 				}
-				fmt.Printf("%s\n", s)
+				fmt.Printf("%s\n", line)
 			}
 		case *cdpruntime.EventExceptionThrown:
 			if ev.ExceptionDetails != nil && ev.ExceptionDetails.Exception != nil {
