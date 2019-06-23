@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	logger := log.New(os.Stderr, "", log.LstdFlags|log.Lshortfile)
+	logger := log.New(os.Stderr, "[wasmbrowsertest]: ", log.LstdFlags|log.Lshortfile)
 	if len(os.Args) < 2 {
 		logger.Fatal("Please pass a wasm file as a parameter")
 	}
