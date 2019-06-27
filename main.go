@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/inspector"
+	"github.com/chromedp/cdproto/profiler"
 	cdpruntime "github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
@@ -109,9 +110,28 @@ func main() {
 
 	exitCode := 0
 	err = chromedp.Run(ctx,
+		profiler.Enable(),
+		profiler.Start(),
 		chromedp.Navigate(`http://localhost:`+port),
 		chromedp.WaitEnabled(`#doneButton`),
 		chromedp.Evaluate(`exitCode;`, &exitCode),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			profile, err := profiler.Stop().Do(ctx)
+			if err != nil {
+				return err
+			}
+			outF, err := os.Create("pprof.out")
+			if err != nil {
+				return err
+			}
+			defer func() {
+				err := outF.Close()
+				if err != nil {
+					logger.Println(err)
+				}
+			}()
+			return WriteProfile(profile, outF)
+		}),
 	)
 	if err != nil {
 		logger.Println(err)
