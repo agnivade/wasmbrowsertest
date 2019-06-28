@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -31,10 +32,11 @@ func main() {
 	// net/http code does not take js/wasm path if it is a .test binary.
 	if ext == ".test" {
 		wasmFile = strings.Replace(wasmFile, ext, ".wasm", -1)
-		err := os.Rename(os.Args[1], wasmFile)
+		err := copyFile(os.Args[1], wasmFile)
 		if err != nil {
 			logger.Fatal(err)
 		}
+		defer os.Remove(wasmFile)
 		os.Args[1] = wasmFile
 	}
 	// We create a copy of the args to pass to NewWASMServer, because flag.Parse needs the
@@ -179,4 +181,23 @@ func filterCPUProfile(args []string) []string {
 		tmp = append(tmp, x)
 	}
 	return tmp
+}
+
+func copyFile(src, dst string) error {
+	srdFd, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("error in copying %s to %s: %v", src, dst, err)
+	}
+	defer srdFd.Close()
+
+	dstFd, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("error in copying %s to %s: %v", src, dst, err)
+	}
+	defer dstFd.Close()
+	_, err = io.Copy(dstFd, srdFd)
+	if err != nil {
+		return fmt.Errorf("error in copying %s to %s: %v", src, dst, err)
+	}
+	return nil
 }
