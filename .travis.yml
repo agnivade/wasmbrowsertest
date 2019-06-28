@@ -13,3 +13,4 @@ install:
 script:
 - go vet -all .
 - gofmt -l -s -w .
+- go test -v
