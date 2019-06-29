@@ -27,6 +27,8 @@ func main() {
 		logger.Fatal("Please pass a wasm file as a parameter")
 	}
 
+	initFlags()
+
 	wasmFile := os.Args[1]
 	ext := path.Ext(wasmFile)
 	// net/http code does not take js/wasm path if it is a .test binary.
