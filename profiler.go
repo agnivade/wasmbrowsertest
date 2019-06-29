@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"strconv"
 
@@ -41,21 +40,21 @@ func WriteProfile(cProf *profiler.Profile, w io.Writer) error {
 	// Helper maps which allow easy construction of the profile.
 	fnMap := make(map[string]*profile.Function)
 	locMap := make(map[int64]locMeta)
-	locChildrenMap := make(map[int64][]int64) // []int64 is a slice of locationIDs
 
 	// A monotonically increasing function ID.
 	// We bump this everytime we see a new function.
 	var fnID uint64 = 1
-	// Now we iterate the cprof nodes and construct the function map
-	for _, n := range cProf.Nodes {
+	pProf.Location = make([]*profile.Location, len(cProf.Nodes))
+	// Now we iterate the cprof nodes and populate the functions and locations.
+	for i, n := range cProf.Nodes {
 		cf := n.CallFrame
 		// We create such a function key to uniquely map functions, since the profile does not have
 		// any unique function ID.
 		fnKey := cf.FunctionName + strconv.Itoa(int(cf.LineNumber)) + strconv.Itoa(int(cf.ColumnNumber))
-		_, exists := fnMap[fnKey]
+		pFn, exists := fnMap[fnKey]
 		if !exists {
 			// Creating the function struct
-			pFn := profile.Function{
+			pFn = &profile.Function{
 				ID:         fnID,
 				Name:       cf.FunctionName,
 				SystemName: cf.FunctionName,
@@ -63,38 +62,27 @@ func WriteProfile(cProf *profiler.Profile, w io.Writer) error {
 			}
 			fnID++
 			// Add it to map
-			fnMap[fnKey] = &pFn
+			fnMap[fnKey] = pFn
 
 			// Adding it to the function slice
-			pProf.Function = append(pProf.Function, &pFn)
+			pProf.Function = append(pProf.Function, pFn)
 		}
-	}
 
-	// We have to iterate the nodes again to construct the location list
-	pProf.Location = make([]*profile.Location, len(cProf.Nodes))
-	for i, n := range cProf.Nodes {
-		cf := n.CallFrame
-		fnKey := cf.FunctionName + strconv.Itoa(int(cf.LineNumber)) + strconv.Itoa(int(cf.ColumnNumber))
-		fn, exists := fnMap[fnKey]
-		if !exists {
-			return fmt.Errorf("function key %s not found in map", fnKey)
-		}
-		loc := profile.Location{
+		loc := &profile.Location{
 			ID: uint64(n.ID),
 			Line: []profile.Line{
 				{
-					Function: fn,
+					Function: pFn,
 					Line:     cf.LineNumber,
 				},
 			},
 		}
 
 		// Add it to map
-		locMap[n.ID] = locMeta{loc: &loc}
-		locChildrenMap[n.ID] = n.Children
+		locMap[n.ID] = locMeta{loc: loc}
 
 		// Add it to location slice
-		pProf.Location[i] = &loc
+		pProf.Location[i] = loc
 	}
 
 	// Iterate it once more, to build the parent-child chain.
