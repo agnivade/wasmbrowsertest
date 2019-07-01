@@ -79,37 +79,7 @@ func main() {
 	defer cancel()
 
 	chromedp.ListenTarget(ctx, func(ev interface{}) {
-		switch ev := ev.(type) {
-		case *cdpruntime.EventConsoleAPICalled:
-			for _, arg := range ev.Args {
-				line := string(arg.Value)
-				// Any string content is quoted with double-quotes.
-				// So need to treat it specially.
-				s, err := strconv.Unquote(line)
-				if err != nil {
-					// Probably some numeric content, print it as is.
-					fmt.Printf("%s\n", line)
-					continue
-				}
-				fmt.Printf("%s\n", s)
-			}
-		case *cdpruntime.EventExceptionThrown:
-			if ev.ExceptionDetails != nil && ev.ExceptionDetails.Exception != nil {
-				fmt.Printf("%s\n", ev.ExceptionDetails.Exception.Description)
-			}
-		case *target.EventTargetCrashed:
-			fmt.Printf("target crashed: status: %s, error code:%d\n", ev.Status, ev.ErrorCode)
-			err := chromedp.Cancel(ctx)
-			if err != nil {
-				logger.Printf("error in cancelling context: %v\n", err)
-			}
-		case *inspector.EventDetached:
-			fmt.Println("inspector detached: ", ev.Reason)
-			err := chromedp.Cancel(ctx)
-			if err != nil {
-				logger.Printf("error in cancelling context: %v\n", err)
-			}
-		}
+		handleEvent(ctx, ev, logger)
 	})
 
 	done := make(chan struct{})
@@ -148,6 +118,9 @@ func main() {
 					logger.Println(err)
 				}
 			}()
+
+			// funcMap, err := getFuncMap(wasmFile)
+
 			return WriteProfile(profile, outF)
 		}))
 	}
@@ -202,4 +175,40 @@ func copyFile(src, dst string) error {
 		return fmt.Errorf("error in copying %s to %s: %v", src, dst, err)
 	}
 	return nil
+}
+
+// handleEvent responds to different events from the browser and takes
+// appropriate action.
+func handleEvent(ctx context.Context, ev interface{}, logger *log.Logger) {
+	switch ev := ev.(type) {
+	case *cdpruntime.EventConsoleAPICalled:
+		for _, arg := range ev.Args {
+			line := string(arg.Value)
+			// Any string content is quoted with double-quotes.
+			// So need to treat it specially.
+			s, err := strconv.Unquote(line)
+			if err != nil {
+				// Probably some numeric content, print it as is.
+				fmt.Printf("%s\n", line)
+				continue
+			}
+			fmt.Printf("%s\n", s)
+		}
+	case *cdpruntime.EventExceptionThrown:
+		if ev.ExceptionDetails != nil && ev.ExceptionDetails.Exception != nil {
+			fmt.Printf("%s\n", ev.ExceptionDetails.Exception.Description)
+		}
+	case *target.EventTargetCrashed:
+		fmt.Printf("target crashed: status: %s, error code:%d\n", ev.Status, ev.ErrorCode)
+		err := chromedp.Cancel(ctx)
+		if err != nil {
+			logger.Printf("error in cancelling context: %v\n", err)
+		}
+	case *inspector.EventDetached:
+		fmt.Println("inspector detached: ", ev.Reason)
+		err := chromedp.Cancel(ctx)
+		if err != nil {
+			logger.Printf("error in cancelling context: %v\n", err)
+		}
+	}
 }
