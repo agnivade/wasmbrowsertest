@@ -53,6 +53,9 @@ func WriteProfile(cProf *profiler.Profile, w io.Writer) error {
 		fnKey := cf.FunctionName + strconv.Itoa(int(cf.LineNumber)) + strconv.Itoa(int(cf.ColumnNumber))
 		pFn, exists := fnMap[fnKey]
 		if !exists {
+			// TODO: If regex match cf.FunctionName
+			// then get the functionName from funcMap
+
 			// Creating the function struct
 			pFn = &profile.Function{
 				ID:         fnID,
