@@ -119,9 +119,12 @@ func main() {
 				}
 			}()
 
-			// funcMap, err := getFuncMap(wasmFile)
+			funcMap, err := getFuncMap(wasmFile)
+			if err != nil {
+				return err
+			}
 
-			return WriteProfile(profile, outF)
+			return WriteProfile(profile, outF, funcMap)
 		}))
 	}
 
