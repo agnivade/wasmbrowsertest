@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"io"
+	"regexp"
 	"strconv"
 
 	"github.com/chromedp/cdproto/profiler"
@@ -16,7 +18,7 @@ type locMeta struct {
 }
 
 // WriteProfile converts a chromedp profile to a pprof profile.
-func WriteProfile(cProf *profiler.Profile, w io.Writer) error {
+func WriteProfile(cProf *profiler.Profile, w io.Writer, funcMap map[int]string) error {
 	// Creating an empty pprof object
 	pProf := profile.Profile{
 		SampleType: []*profile.ValueType{
@@ -40,6 +42,7 @@ func WriteProfile(cProf *profiler.Profile, w io.Writer) error {
 	// Helper maps which allow easy construction of the profile.
 	fnMap := make(map[string]*profile.Function)
 	locMap := make(map[int64]locMeta)
+	funcRegexp := regexp.MustCompile(`^wasm-function\[([0-9]+)\]$`)
 
 	// A monotonically increasing function ID.
 	// We bump this everytime we see a new function.
@@ -53,8 +56,15 @@ func WriteProfile(cProf *profiler.Profile, w io.Writer) error {
 		fnKey := cf.FunctionName + strconv.Itoa(int(cf.LineNumber)) + strconv.Itoa(int(cf.ColumnNumber))
 		pFn, exists := fnMap[fnKey]
 		if !exists {
-			// TODO: If regex match cf.FunctionName
-			// then get the functionName from funcMap
+			// If the function name is of form wasm-function[], then we find out the actual function name
+			// from the passed map and replace the name.
+			if funcRegexp.MatchString(cf.FunctionName) {
+				fIndex, err := strconv.Atoi(funcRegexp.FindStringSubmatch(cf.FunctionName)[1])
+				if err != nil {
+					return fmt.Errorf("incorrect wasm function name: %s", cf.FunctionName)
+				}
+				cf.FunctionName = funcMap[fIndex]
+			}
 
 			// Creating the function struct
 			pFn = &profile.Function{

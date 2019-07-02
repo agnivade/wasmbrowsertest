@@ -21,7 +21,8 @@ func TestWriteProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = WriteProfile(&cProf, &outBuf)
+	fnMap := make(map[int]string)
+	err = WriteProfile(&cProf, &outBuf, fnMap)
 	if err != nil {
 		t.Error(err)
 	}
