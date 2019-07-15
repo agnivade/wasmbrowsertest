@@ -15,6 +15,7 @@ This tool automates all of that. So you just have to type `GOOS=js GOARCH=wasm g
 - Rename the binary to `go_js_wasm_exec`.
 - Add $GOBIN to $PATH if it is not already done.
 - Run tests as usual: `GOOS=js GOARCH=wasm go test`.
+- You can also take a cpu profile. Set the `-cpuprofile` flag for that.
 
 ## Ok, but how does the magic work ?
 
@@ -45,6 +46,10 @@ So essentially, there are 2 ways:
 - Or set the `-exec` flag in your tests.
 
 Use whatever works for you.
+
+### How is a CPU profile taken ?
+
+A CPU profile is run during the duration of the test, and then converted to the pprof format so that it can be natively analyzed with the Go toolchain.
 
 ### If I have a wasm binary file, can this run it in the browser ?
 
