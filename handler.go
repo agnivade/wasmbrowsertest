@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -18,6 +19,7 @@ type wasmServer struct {
 	wasmFile   string
 	wasmExecJS []byte
 	args       []string
+	envMap     map[string]string
 	logger     *log.Logger
 }
 
@@ -27,6 +29,12 @@ func NewWASMServer(wasmFile string, args []string, l *log.Logger) (http.Handler,
 		wasmFile: wasmFile,
 		args:     args,
 		logger:   l,
+		envMap:   make(map[string]string),
+	}
+
+	for _, env := range os.Environ() {
+		vars := strings.SplitN(env, "=", 2)
+		srv.envMap[vars[0]] = vars[1]
 	}
 
 	buf, err := ioutil.ReadFile(path.Join(runtime.GOROOT(), "misc/wasm/wasm_exec.js"))
@@ -50,9 +58,11 @@ func (ws *wasmServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		data := struct {
 			WASMFile string
 			Args     []string
+			EnvMap   map[string]string
 		}{
 			WASMFile: filepath.Base(ws.wasmFile),
 			Args:     ws.args,
+			EnvMap:   ws.envMap,
 		}
 		err := ws.indexTmpl.Execute(w, data)
 		if err != nil {
@@ -116,6 +126,10 @@ license that can be found in the LICENSE file.
 		(async() => {
 			const go = new Go();
 			go.argv = [{{range $i, $item := .Args}} {{if $i}}, {{end}} "{{$item}}" {{end}}];
+			// The notFirst variable sets itself to true after first iteration. This is to put commas in between.
+			go.env = { {{ $notFirst := false }}
+			{{range $key, $val := .EnvMap}} {{if $notFirst}}, {{end}} {{$key}}: "{{$val}}" {{ $notFirst = true }}
+			{{end}} };
 			go.exit = goExit;
 			let mod, inst;
 			await WebAssembly.instantiateStreaming(fetch("{{.WASMFile}}"), go.importObject).then((result) => {
