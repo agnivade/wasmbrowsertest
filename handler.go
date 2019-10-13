@@ -143,6 +143,6 @@ license that can be found in the LICENSE file.
 		})();
 	</script>
 
-	<button id="doneButton" disabled>Done</button>
+	<button id="doneButton" style="display: none;" disabled>Done</button>
 </body>
 </html>`
