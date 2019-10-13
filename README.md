@@ -51,9 +51,9 @@ Use whatever works for you.
 
 A CPU profile is run during the duration of the test, and then converted to the pprof format so that it can be natively analyzed with the Go toolchain.
 
-### If I have a wasm binary file, can this run it in the browser ?
+### Can I run something which is not a test ?
 
-Yep. Just pass the wasm file as the first argument - `wasmbrowsertest test.wasm`.
+Yep. `GOOS=js GOARCH=wasm go run main.go` also works. If you want to actually see the application running in the browser, set the `WASM_HEADLESS` variable to `off` like so `WASM_HEADLESS=off GOOS=js GOARCH=wasm go run main.go`.
 
 ### Can I use this inside Travis ?
 
