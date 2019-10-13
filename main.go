@@ -95,7 +95,7 @@ func main() {
 
 	done := make(chan struct{})
 	go func() {
-		err := httpServer.Serve(l)
+		err = httpServer.Serve(l)
 		if err != http.ErrServerClosed {
 			logger.Println(err)
 		}
@@ -124,7 +124,7 @@ func main() {
 				return err
 			}
 			defer func() {
-				err := outF.Close()
+				err = outF.Close()
 				if err != nil {
 					logger.Println(err)
 				}
