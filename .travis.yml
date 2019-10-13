@@ -12,6 +12,6 @@ install:
 - go build
 
 script:
-- go vet -all .
+- go vet .
 - gofmt -l -s -w .
 - go test -v
