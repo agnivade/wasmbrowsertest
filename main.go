@@ -3,14 +3,11 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
@@ -34,11 +31,11 @@ func main() {
 	// net/http code does not take js/wasm path if it is a .test binary.
 	if ext == ".test" {
 		wasmFile = strings.Replace(wasmFile, ext, ".wasm", -1)
-		err := copyFile(os.Args[1], wasmFile)
+		err := os.Rename(os.Args[1], wasmFile)
 		if err != nil {
 			logger.Fatal(err)
 		}
-		defer os.Remove(wasmFile)
+		defer os.Rename(wasmFile, os.Args[1])
 		os.Args[1] = wasmFile
 	}
 	// We create a copy of the args to pass to NewWASMServer, because flag.Parse needs the
@@ -172,54 +169,33 @@ func filterCPUProfile(args []string) []string {
 	return tmp
 }
 
-func copyFile(src, dst string) error {
-	srdFd, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("error in copying %s to %s: %v", src, dst, err)
-	}
-	defer srdFd.Close()
-
-	dstFd, err := os.Create(dst)
-	if err != nil {
-		return fmt.Errorf("error in copying %s to %s: %v", src, dst, err)
-	}
-	defer dstFd.Close()
-	_, err = io.Copy(dstFd, srdFd)
-	if err != nil {
-		return fmt.Errorf("error in copying %s to %s: %v", src, dst, err)
-	}
-	return nil
-}
-
 // handleEvent responds to different events from the browser and takes
 // appropriate action.
 func handleEvent(ctx context.Context, ev interface{}, logger *log.Logger) {
 	switch ev := ev.(type) {
 	case *cdpruntime.EventConsoleAPICalled:
-		for _, arg := range ev.Args {
-			line := string(arg.Value)
-			// Any string content is quoted with double-quotes.
-			// So need to treat it specially.
-			s, err := strconv.Unquote(line)
-			if err != nil {
-				// Probably some numeric content, print it as is.
-				fmt.Printf("%s\n", line)
-				continue
-			}
-			fmt.Printf("%s\n", s)
+		// Print the full structure for transparency
+		jsonBytes, err := ev.MarshalJSON()
+		if err != nil {
+			logger.Fatal(err)
 		}
+		if ev.Type == cdpruntime.APITypeError {
+			// special case which can mean the WASM program never initialized
+			logger.Fatalf("fatal error while trying to run tests: %v\n", string(jsonBytes))
+		}
+		logger.Printf("%v\n", string(jsonBytes))
 	case *cdpruntime.EventExceptionThrown:
 		if ev.ExceptionDetails != nil && ev.ExceptionDetails.Exception != nil {
-			fmt.Printf("%s\n", ev.ExceptionDetails.Exception.Description)
+			logger.Printf("%s\n", ev.ExceptionDetails.Exception.Description)
 		}
 	case *target.EventTargetCrashed:
-		fmt.Printf("target crashed: status: %s, error code:%d\n", ev.Status, ev.ErrorCode)
+		logger.Printf("target crashed: status: %s, error code:%d\n", ev.Status, ev.ErrorCode)
 		err := chromedp.Cancel(ctx)
 		if err != nil {
 			logger.Printf("error in cancelling context: %v\n", err)
 		}
 	case *inspector.EventDetached:
-		fmt.Println("inspector detached: ", ev.Reason)
+		logger.Println("inspector detached: ", ev.Reason)
 		err := chromedp.Cancel(ctx)
 		if err != nil {
 			logger.Printf("error in cancelling context: %v\n", err)
