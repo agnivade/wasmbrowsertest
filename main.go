@@ -3,11 +3,16 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"github.com/chromedp/cdproto/network"
+	"github.com/mailru/easyjson/jlexer"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +29,11 @@ func main() {
 		logger.Fatal("Please pass a wasm file as a parameter")
 	}
 
+	debug := false
+	if strings.ToLower(os.Getenv("DEBUG")) == "on" {
+		debug = true
+	}
+
 	initFlags()
 
 	wasmFile := os.Args[1]
@@ -31,11 +41,11 @@ func main() {
 	// net/http code does not take js/wasm path if it is a .test binary.
 	if ext == ".test" {
 		wasmFile = strings.Replace(wasmFile, ext, ".wasm", -1)
-		err := os.Rename(os.Args[1], wasmFile)
+		err := copyFile(os.Args[1], wasmFile)
 		if err != nil {
 			logger.Fatal(err)
 		}
-		defer os.Rename(wasmFile, os.Args[1])
+		defer os.Remove(wasmFile)
 		os.Args[1] = wasmFile
 	}
 	// We create a copy of the args to pass to NewWASMServer, because flag.Parse needs the
@@ -81,8 +91,17 @@ func main() {
 	}
 
 	// create chrome instance
+	var browserCtxOptions []chromedp.ContextOption
+	if debug {
+		browserCtxOptions = []chromedp.ContextOption{
+			chromedp.WithDebugf(logBrowser),
+			chromedp.WithErrorf(logBrowser),
+			chromedp.WithLogf(logBrowser),
+		}
+	}
 	ctx, cancel := chromedp.NewContext(
 		allocCtx,
+		browserCtxOptions...,
 	)
 	defer cancel()
 
@@ -136,6 +155,13 @@ func main() {
 		}))
 	}
 
+	if debug {
+		// enable debugging the network domain https://chromedevtools.github.io/devtools-protocol/tot/Network#method-enable
+		tasks = append([]chromedp.Action{chromedp.ActionFunc(func(ctx context.Context) error {
+			return network.Enable().Do(ctx)
+		})}, tasks...)
+	}
+
 	err = chromedp.Run(ctx, tasks...)
 	if err != nil {
 		logger.Println(err)
@@ -169,21 +195,51 @@ func filterCPUProfile(args []string) []string {
 	return tmp
 }
 
+func copyFile(src, dst string) error {
+	srdFd, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("error in copying %s to %s: %v", src, dst, err)
+	}
+	defer srdFd.Close()
+
+	dstFd, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("error in copying %s to %s: %v", src, dst, err)
+	}
+	defer dstFd.Close()
+	_, err = io.Copy(dstFd, srdFd)
+	if err != nil {
+		return fmt.Errorf("error in copying %s to %s: %v", src, dst, err)
+	}
+	return nil
+}
+
 // handleEvent responds to different events from the browser and takes
 // appropriate action.
 func handleEvent(ctx context.Context, ev interface{}, logger *log.Logger) {
 	switch ev := ev.(type) {
 	case *cdpruntime.EventConsoleAPICalled:
-		// Print the full structure for transparency
-		jsonBytes, err := ev.MarshalJSON()
-		if err != nil {
-			logger.Fatal(err)
-		}
 		if ev.Type == cdpruntime.APITypeError {
-			// special case which can mean the WASM program never initialized
+			// If thrown in index.html this can mean the WASM program never initialized.
+			// Such an error causes the Done button to never be enabled, so the test 'hangs'.
+			jsonBytes, err := ev.MarshalJSON()
+			if err != nil {
+				logger.Fatal(err)
+			}
 			logger.Fatalf("fatal error while trying to run tests: %v\n", string(jsonBytes))
 		}
-		logger.Printf("%v\n", string(jsonBytes))
+		for _, arg := range ev.Args {
+			line := string(arg.Value)
+			// Any string content is quoted with double-quotes.
+			// So need to treat it specially.
+			s, err := strconv.Unquote(line)
+			if err != nil {
+				// Probably some numeric content, print it as is.
+				logger.Printf("%s\n", line)
+				continue
+			}
+			logger.Printf("%s\n", s)
+		}
 	case *cdpruntime.EventExceptionThrown:
 		if ev.ExceptionDetails != nil && ev.ExceptionDetails.Exception != nil {
 			logger.Printf("%s\n", ev.ExceptionDetails.Exception.Description)
@@ -199,6 +255,26 @@ func handleEvent(ctx context.Context, ev interface{}, logger *log.Logger) {
 		err := chromedp.Cancel(ctx)
 		if err != nil {
 			logger.Printf("error in cancelling context: %v\n", err)
+		}
+	}
+}
+
+// logBrowser is used to log browser events.
+// The first argument is ignored. Two line breaks between messages improves readability.
+func logBrowser(_ string, d ...interface{}) {
+	for i := range d {
+		switch t := d[i].(type) {
+		case []byte:
+			// to filter out Wait Actions, uncomment these lines
+			//if bytes.Contains(d[i].([]byte), []byte("#wasm_done")) || bytes.Contains(d[i].([]byte), []byte(`"result":{}`)) || bytes.Contains(d[i].([]byte), []byte(`\"resultCount\":0}}"`)){
+			//	continue
+			//}
+			log.Printf("browser log: %v\n\n", string(d[i].([]byte)))
+		case *jlexer.LexerError:
+			// used in network logging
+			log.Printf("browser log: %v\n\n", d[i].(*jlexer.LexerError).Error())
+		default:
+			log.Printf("browser logging error - type unhandled: %v\n\n", t)
 		}
 	}
 }
