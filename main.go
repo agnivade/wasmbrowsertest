@@ -1,17 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
 	"github.com/chromedp/cdproto/network"
 	"github.com/mailru/easyjson/jlexer"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"path"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -79,15 +82,18 @@ func main() {
 		Handler: handler,
 	}
 
-	allocCtx := context.Background()
+	opts := chromedp.DefaultExecAllocatorOptions[:]
 	if os.Getenv("WASM_HEADLESS") == "off" {
-		opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		opts = append(opts,
 			chromedp.Flag("headless", false),
 		)
+	}
 
-		var cancel context.CancelFunc
-		allocCtx, cancel = chromedp.NewExecAllocator(context.Background(), opts...)
-		defer cancel()
+	// WSL needs the GPU disabled. See issue #10
+	if runtime.GOOS == "linux" && isWSL() {
+		opts = append(opts,
+			chromedp.DisableGPU,
+		)
 	}
 
 	// create chrome instance
@@ -99,11 +105,10 @@ func main() {
 			chromedp.WithLogf(logBrowser),
 		}
 	}
-	ctx, cancel := chromedp.NewContext(
-		allocCtx,
-		browserCtxOptions...,
-	)
-	defer cancel()
+	allocCtx, cancelAllocCtx := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer cancelAllocCtx()
+	ctx, cancelCtx := chromedp.NewContext(allocCtx, browserCtxOptions...)
+	defer cancelCtx()
 
 	chromedp.ListenTarget(ctx, func(ev interface{}) {
 		handleEvent(ctx, ev, logger)
@@ -170,8 +175,8 @@ func main() {
 		defer os.Exit(1)
 	}
 	// create a timeout
-	ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+	ctx, cancelHTTPCtx := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelHTTPCtx()
 	// Close shop
 	err = httpServer.Shutdown(ctx)
 	if err != nil {
@@ -277,4 +282,15 @@ func logBrowser(_ string, d ...interface{}) {
 			log.Printf("browser logging error - type unhandled: %v\n\n", t)
 		}
 	}
+
+// isWSL returns true if the OS is WSL, false otherwise.
+// This method of checking for WSL has worked since mid 2016:
+// https://github.com/microsoft/WSL/issues/423#issuecomment-328526847
+func isWSL() bool {
+	buf, err := ioutil.ReadFile("/proc/sys/kernel/osrelease")
+	if err != nil {
+		return false
+	}
+	// if there was an error opening the file it must not be WSL, so ignore the error
+	return bytes.Contains(buf, []byte("Microsoft"))
 }
