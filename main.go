@@ -204,6 +204,9 @@ func handleEvent(ctx context.Context, ev interface{}, logger *log.Logger) {
 	case *cdpruntime.EventConsoleAPICalled:
 		for _, arg := range ev.Args {
 			line := string(arg.Value)
+			if line == "" { // If Value is not found, look for Description.
+				line = arg.Description
+			}
 			// Any string content is quoted with double-quotes.
 			// So need to treat it specially.
 			s, err := strconv.Unquote(line)
@@ -215,8 +218,16 @@ func handleEvent(ctx context.Context, ev interface{}, logger *log.Logger) {
 			fmt.Printf("%s\n", s)
 		}
 	case *cdpruntime.EventExceptionThrown:
-		if ev.ExceptionDetails != nil && ev.ExceptionDetails.Exception != nil {
-			fmt.Printf("%s\n", ev.ExceptionDetails.Exception.Description)
+		if ev.ExceptionDetails != nil {
+			details := ev.ExceptionDetails
+			fmt.Printf("%s:%d:%d %s\n", details.URL, details.LineNumber, details.ColumnNumber, details.Text)
+			if details.Exception != nil {
+				fmt.Printf("%s\n", details.Exception.Description)
+			}
+			err := chromedp.Cancel(ctx)
+			if err != nil {
+				logger.Printf("error in cancelling context: %v\n", err)
+			}
 		}
 	case *target.EventTargetCrashed:
 		fmt.Printf("target crashed: status: %s, error code:%d\n", ev.Status, ev.ErrorCode)
