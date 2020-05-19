@@ -16,6 +16,7 @@ import (
 
 type wasmServer struct {
 	indexTmpl  *template.Template
+	initFile   string
 	wasmFile   string
 	wasmExecJS []byte
 	args       []string
@@ -23,9 +24,10 @@ type wasmServer struct {
 	logger     *log.Logger
 }
 
-func NewWASMServer(wasmFile string, args []string, l *log.Logger) (http.Handler, error) {
+func NewWASMServer(initFile string, wasmFile string, args []string, l *log.Logger) (http.Handler, error) {
 	var err error
 	srv := &wasmServer{
+		initFile: initFile,
 		wasmFile: wasmFile,
 		args:     args,
 		logger:   l,
@@ -56,10 +58,12 @@ func (ws *wasmServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/", "/index.html":
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		data := struct {
+			InitFile string
 			WASMFile string
 			Args     []string
 			EnvMap   map[string]string
 		}{
+			InitFile: filepath.Base(ws.initFile),
 			WASMFile: filepath.Base(ws.wasmFile),
 			Args:     ws.args,
 			EnvMap:   ws.envMap,
@@ -68,6 +72,19 @@ func (ws *wasmServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			ws.logger.Println(err)
 		}
+	case "/" + filepath.Base(ws.initFile):
+		f, err := os.Open(ws.initFile)
+		if err != nil {
+			ws.logger.Println(err)
+			return
+		}
+		defer func() {
+			err := f.Close()
+			if err != nil {
+				ws.logger.Println(err)
+			}
+		}()
+		http.ServeContent(w, r, r.URL.Path, time.Now(), f)
 	case "/" + filepath.Base(ws.wasmFile):
 		f, err := os.Open(ws.wasmFile)
 		if err != nil {
@@ -109,6 +126,7 @@ license that can be found in the LICENSE file.
 	<script src="https://cdn.jsdelivr.net/npm/text-encoding@0.7.0/lib/encoding.min.js"></script>
 	(see https://caniuse.com/#feat=textencoder)
 	-->
+	<script src="{{.InitFile}}"></script>
 	<script src="wasm_exec.js"></script>
 	<script>
 		if (!WebAssembly.instantiateStreaming) { // polyfill

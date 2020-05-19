@@ -7,6 +7,7 @@ import (
 
 var (
 	cpuProfile *string
+	initFile   *string
 )
 
 // This is just a copy of all the flags from the testing package.
@@ -35,4 +36,5 @@ func initFlags() {
 	_ = flag.String("test.bench", "", "")
 	_ = flag.Bool("test.benchmem", false, "")
 	_ = flag.Duration("test.benchtime", time.Second, "")
+	initFile = flag.String("initFile", "", "")
 }
