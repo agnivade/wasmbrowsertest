@@ -54,25 +54,12 @@ func NewWASMServer(initFile string, wasmFile string, args []string, l *log.Logge
 
 func (ws *wasmServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// log.Println(r.URL.Path)
-	switch r.URL.Path {
-	case "/", "/index.html":
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		data := struct {
-			InitFile string
-			WASMFile string
-			Args     []string
-			EnvMap   map[string]string
-		}{
-			InitFile: filepath.Base(ws.initFile),
-			WASMFile: filepath.Base(ws.wasmFile),
-			Args:     ws.args,
-			EnvMap:   ws.envMap,
-		}
-		err := ws.indexTmpl.Execute(w, data)
-		if err != nil {
-			ws.logger.Println(err)
-		}
-	case "/" + filepath.Base(ws.initFile):
+
+	initFilename := ""
+	if ws.initFile != "" {
+		initFilename = filepath.Base(ws.initFile)
+	}
+	if initFilename != "" && r.URL.Path == "/"+initFilename {
 		f, err := os.Open(ws.initFile)
 		if err != nil {
 			ws.logger.Println(err)
@@ -85,6 +72,27 @@ func (ws *wasmServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 		http.ServeContent(w, r, r.URL.Path, time.Now(), f)
+	}
+
+	switch r.URL.Path {
+	case "/", "/index.html":
+		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+
+		data := struct {
+			InitFile string
+			WASMFile string
+			Args     []string
+			EnvMap   map[string]string
+		}{
+			InitFile: initFilename,
+			WASMFile: filepath.Base(ws.wasmFile),
+			Args:     ws.args,
+			EnvMap:   ws.envMap,
+		}
+		err := ws.indexTmpl.Execute(w, data)
+		if err != nil {
+			ws.logger.Println(err)
+		}
 	case "/" + filepath.Base(ws.wasmFile):
 		f, err := os.Open(ws.wasmFile)
 		if err != nil {
@@ -126,7 +134,9 @@ license that can be found in the LICENSE file.
 	<script src="https://cdn.jsdelivr.net/npm/text-encoding@0.7.0/lib/encoding.min.js"></script>
 	(see https://caniuse.com/#feat=textencoder)
 	-->
-	<script src="{{.InitFile}}"></script>
+	{{ if ne .InitFile "" }}
+		<script src="{{ .InitFile }}"></script>
+	{{ end }}
 	<script src="wasm_exec.js"></script>
 	<script>
 		if (!WebAssembly.instantiateStreaming) { // polyfill
