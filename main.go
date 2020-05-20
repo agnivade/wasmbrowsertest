@@ -67,7 +67,8 @@ func main() {
 	}
 
 	// Setup web server.
-	handler, err := NewWASMServer(*initFile, wasmFile, filterCPUProfile(argsCopy[1:]), logger)
+	initFile := os.Getenv("WASM_INIT_FILE")
+	handler, err := NewWASMServer(initFile, wasmFile, filterCPUProfile(argsCopy[1:]), logger)
 	if err != nil {
 		logger.Fatal(err)
 	}
