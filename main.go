@@ -25,6 +25,15 @@ import (
 )
 
 func main() {
+	// NOTE(jalextowle): Since `os.Exit` will cause the process to exit, this defer
+	// must be at the bottom of the defer stack to allow all other defer calls to
+	// be called first. We pass this deferred function a pointer to an exit code
+	// so that it can be altered later in the program.
+	exitCode := 0
+	defer func(code *int) {
+		os.Exit(*code)
+	}(&exitCode)
+
 	logger := log.New(os.Stderr, "[wasmbrowsertest]: ", log.LstdFlags|log.Lshortfile)
 	if len(os.Args) < 2 {
 		logger.Fatal("Please pass a wasm file as a parameter")
@@ -107,8 +116,6 @@ func main() {
 		}
 		done <- struct{}{}
 	}()
-
-	exitCode := 0
 	tasks := []chromedp.Action{
 		chromedp.Navigate(`http://localhost:` + port),
 		chromedp.WaitEnabled(`#doneButton`),
@@ -150,7 +157,7 @@ func main() {
 		logger.Println(err)
 	}
 	if exitCode != 0 {
-		defer os.Exit(1)
+		exitCode = 1
 	}
 	// create a timeout
 	ctx, cancelHTTPCtx := context.WithTimeout(ctx, 5*time.Second)
