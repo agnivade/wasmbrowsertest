@@ -25,14 +25,15 @@ import (
 )
 
 func main() {
-	// NOTE(jalextowle): Since `os.Exit` will cause the process to exit, this defer
+	// NOTE: Since `os.Exit` will cause the process to exit, this defer
 	// must be at the bottom of the defer stack to allow all other defer calls to
-	// be called first. We pass this deferred function a pointer to an exit code
-	// so that it can be altered later in the program.
+	// be called first.
 	exitCode := 0
-	defer func(code *int) {
-		os.Exit(*code)
-	}(&exitCode)
+	defer func() {
+		if exitCode != 0 {
+			os.Exit(exitCode)
+		}
+	}()
 
 	logger := log.New(os.Stderr, "[wasmbrowsertest]: ", log.LstdFlags|log.Lshortfile)
 	if len(os.Args) < 2 {
