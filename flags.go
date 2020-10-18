@@ -35,4 +35,5 @@ func initFlags() {
 	_ = flag.String("test.bench", "", "")
 	_ = flag.Bool("test.benchmem", false, "")
 	_ = flag.Duration("test.benchtime", time.Second, "")
+	_ = flag.Bool("test.paniconexit0", false, "")
 }
