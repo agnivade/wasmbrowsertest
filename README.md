@@ -73,6 +73,45 @@ install:
 
 Now, just setting `GOOS=js GOARCH=wasm` will run your tests using `wasmbrowsertest`. For other CI environments, you have to do something similar.
 
+### Can I use this inside Github Action?
+
+Sure.
+
+Add these lines to your `.github/workflows/ci.yml`
+
+PS: adjust the go version you need in go-version section
+
+```
+on: [push, pull_request]
+name: Unit Test
+jobs:
+  test:
+    strategy:
+      matrix:
+        go-version: [1.17.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: Install chrome
+      uses: browser-actions/setup-chrome@latest
+    - name: Run chrome headless
+      run:  google-chrome --no-sandbox --disable-gpu --headless --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222 &
+    - name: Install dep
+      run: go install github.com/agnivade/wasmbrowsertest@latest
+    - name: Setup wasmexec
+      run: mv $(go env GOPATH)/bin/wasmbrowsertest $(go env GOPATH)/bin/go_js_wasm_exec
+    - name: Keep only env useful
+      run: echo "GOPATH=$(go env GOPATH) GOCACHE=$(go env GOCACHE) GOROOT=$(go env GOROOT) PATH=$(echo $PATH)" >/opt/.env    
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Test
+      run:  env -i $(cat /opt/.env) GOOS=js GOARCH=wasm go test ./...
+```
+
 ### What sorts of browsers are supported ?
 
 This tool uses the [ChromeDP](https://chromedevtools.github.io/devtools-protocol/) protocol to run the tests inside a Chrome browser. So Chrome or any blink-based browser will work.
