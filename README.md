@@ -11,7 +11,7 @@ This tool automates all of that. So you just have to type `GOOS=js GOARCH=wasm g
 
 ## Quickstart
 
-- `go get github.com/agnivade/wasmbrowsertest`. This will place the binary in $GOPATH/bin, or $GOBIN, if that has a different value.
+- `go install github.com/agnivade/wasmbrowsertest@latest`. This will place the binary in $GOPATH/bin, or $GOBIN, if that has a different value.
 - Rename the binary to `go_js_wasm_exec`.
 - Add $GOBIN to $PATH if it is not already done.
 - Run tests as usual: `GOOS=js GOARCH=wasm go test`.
