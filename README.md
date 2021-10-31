@@ -66,12 +66,45 @@ addons:
   chrome: stable
 
 install:
-- go get github.com/agnivade/wasmbrowsertest
+- go install github.com/agnivade/wasmbrowsertest@latest
 - mv $GOPATH/bin/wasmbrowsertest $GOPATH/bin/go_js_wasm_exec
 - export PATH=$GOPATH/bin:$PATH
 ```
 
 Now, just setting `GOOS=js GOARCH=wasm` will run your tests using `wasmbrowsertest`. For other CI environments, you have to do something similar.
+
+### Can I use this inside Github Action?
+
+Sure.
+
+Add these lines to your `.github/workflows/ci.yml`
+
+PS: adjust the go version you need in go-version section
+
+```
+on: [push, pull_request]
+name: Unit Test
+jobs:
+  test:
+    strategy:
+      matrix:
+        go-version: [1.xx.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: Install chrome
+      uses: browser-actions/setup-chrome@latest
+    - name: Install dep
+      run: go install github.com/agnivade/wasmbrowsertest@latest
+    - name: Setup wasmexec
+      run: mv $(go env GOPATH)/bin/wasmbrowsertest $(go env GOPATH)/bin/go_js_wasm_exec
+    - name: Checkout code
+      uses: actions/checkout@v2
+```
 
 ### What sorts of browsers are supported ?
 
