@@ -88,7 +88,7 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.17.x]
+        go-version: [1.xx.x]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
@@ -98,18 +98,12 @@ jobs:
         go-version: ${{ matrix.go-version }}
     - name: Install chrome
       uses: browser-actions/setup-chrome@latest
-    - name: Run chrome headless
-      run:  google-chrome --no-sandbox --disable-gpu --headless --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222 &
     - name: Install dep
-      run: go install github.com/agnivade/wasmbrowsertest@latest
+      run: go get github.com/agnivade/wasmbrowsertest
     - name: Setup wasmexec
       run: mv $(go env GOPATH)/bin/wasmbrowsertest $(go env GOPATH)/bin/go_js_wasm_exec
-    - name: Keep only env useful
-      run: echo "GOPATH=$(go env GOPATH) GOCACHE=$(go env GOCACHE) GOROOT=$(go env GOROOT) PATH=$(echo $PATH)" >/opt/.env    
     - name: Checkout code
       uses: actions/checkout@v2
-    - name: Test
-      run:  env -i $(cat /opt/.env) GOOS=js GOARCH=wasm go test ./...
 ```
 
 ### What sorts of browsers are supported ?
