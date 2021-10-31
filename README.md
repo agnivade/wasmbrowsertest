@@ -66,7 +66,7 @@ addons:
   chrome: stable
 
 install:
-- go get github.com/agnivade/wasmbrowsertest
+- go install github.com/agnivade/wasmbrowsertest@latest
 - mv $GOPATH/bin/wasmbrowsertest $GOPATH/bin/go_js_wasm_exec
 - export PATH=$GOPATH/bin:$PATH
 ```
@@ -99,7 +99,7 @@ jobs:
     - name: Install chrome
       uses: browser-actions/setup-chrome@latest
     - name: Install dep
-      run: go get github.com/agnivade/wasmbrowsertest
+      run: go install github.com/agnivade/wasmbrowsertest@latest
     - name: Setup wasmexec
       run: mv $(go env GOPATH)/bin/wasmbrowsertest $(go env GOPATH)/bin/go_js_wasm_exec
     - name: Checkout code
