@@ -87,6 +87,13 @@ func (ws *wasmServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if _, err := w.Write(ws.wasmExecJS); err != nil {
 			ws.logger.Println("unable to write wasm_exec.")
 		}
+	default:
+
+		if dir, err := os.Getwd(); err == nil {
+			f := path.Join(dir, r.URL.Path)
+			http.ServeFile(w, r, f)
+		}
+
 	}
 }
 
