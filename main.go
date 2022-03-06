@@ -24,6 +24,10 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+var (
+	cpuProfile *string
+)
+
 func main() {
 	// NOTE: Since `os.Exit` will cause the process to exit, this defer
 	// must be at the bottom of the defer stack to allow all other defer calls to
@@ -40,7 +44,7 @@ func main() {
 		logger.Fatal("Please pass a wasm file as a parameter")
 	}
 
-	initFlags()
+	cpuProfile = flag.String("test.cpuprofile", "", "")
 
 	wasmFile := os.Args[1]
 	ext := path.Ext(wasmFile)
@@ -54,13 +58,9 @@ func main() {
 		defer os.Remove(wasmFile)
 		os.Args[1] = wasmFile
 	}
-	// We create a copy of the args to pass to NewWASMServer, because flag.Parse needs the
-	// 2nd argument (the binary name) removed before being called.
-	// This is an effect of "go test" passing all the arguments _after_ the binary name.
-	argsCopy := append([]string(nil), os.Args...)
-	// Remove the 2nd argument.
-	os.Args = append(os.Args[:1], os.Args[2:]...)
-	flag.Parse()
+
+	passon := gentleParse(flag.CommandLine, os.Args[2:])
+	passon = append([]string{wasmFile}, passon...)
 
 	// Need to generate a random port every time for tests in parallel to run.
 	l, err := net.Listen("tcp", "localhost:")
@@ -77,7 +77,7 @@ func main() {
 	}
 
 	// Setup web server.
-	handler, err := NewWASMServer(wasmFile, filterCPUProfile(argsCopy[1:]), logger)
+	handler, err := NewWASMServer(wasmFile, passon, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -171,21 +171,6 @@ func main() {
 	<-done
 }
 
-// filterCPUProfile removes the cpuprofile argument if passed.
-// CPUProfile is taken from the chromedp driver.
-// So it is valid to pass such an argument, but the wasm binary will throw an error
-// since file i/o is not supported inside the browser.
-func filterCPUProfile(args []string) []string {
-	tmp := args[:0]
-	for _, x := range args {
-		if strings.Contains(x, "test.cpuprofile") {
-			continue
-		}
-		tmp = append(tmp, x)
-	}
-	return tmp
-}
-
 func copyFile(src, dst string) error {
 	srdFd, err := os.Open(src)
 	if err != nil {
@@ -203,6 +188,58 @@ func copyFile(src, dst string) error {
 		return fmt.Errorf("error in copying %s to %s: %v", src, dst, err)
 	}
 	return nil
+}
+
+// gentleParse takes a flag.FlagSet, calls Parse to get its flags parsed,
+// and collects the arguments the FlagSet does not recognize, returning
+// the collected list.
+func gentleParse(flagset *flag.FlagSet, args []string) []string {
+	if len(args) == 0 {
+		return nil
+	}
+
+	r := make([]string, 0, len(args))
+
+	flagset.Init(flagset.Name(), flag.ContinueOnError)
+	w := flagset.Output()
+	flagset.SetOutput(ioutil.Discard)
+
+	// Put back the flagset's output, the flagset's Usage might be called later.
+	defer flagset.SetOutput(w)
+
+	next := args
+
+	for len(next) > 0 {
+		if next[0] == "--" {
+			r = append(r, next...) // include the "--" for the wasm image, it's what "go test" does.
+			break
+		}
+		if !strings.HasPrefix(next[0], "-") {
+			r, next = append(r, next[0]), next[1:]
+			continue
+		}
+		if err := flagset.Parse(next); err != nil {
+			const prefix = "flag provided but not defined: "
+			if strings.HasPrefix(err.Error(), prefix) {
+				pull := strings.TrimPrefix(err.Error(), prefix)
+				for next[0] != pull {
+					next = next[1:]
+					if len(next) == 0 {
+						panic("odd: pull not found: " + pull)
+					}
+				}
+				r, next = append(r, next[0]), next[1:]
+				continue
+			}
+			fmt.Fprintf(w, "%s\n", err)
+			flagset.SetOutput(w)
+			flag.Usage()
+			os.Exit(1)
+		}
+
+		next = flag.Args()
+	}
+	return r
 }
 
 // handleEvent responds to different events from the browser and takes
