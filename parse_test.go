@@ -16,6 +16,17 @@ func ExampleEmpty() {
 	// passon    : []
 }
 
+func ExampleOther() {
+	testFlagSetOther()
+
+	// Empty in, empty out.
+
+	// Output:
+	// cpuProfile: ""
+	// other     : "default-other-value"
+	// passon    : []
+}
+
 func ExampleVerbose() {
 	testFlagSet("-test.v")
 
@@ -119,4 +130,21 @@ func testFlagSet(args ...string) {
 	passon := gentleParse(flagset, args)
 
 	fmt.Printf("cpuProfile: %q\npasson    : %q\n", cpuProfile, passon)
+}
+
+func testFlagSetOther(args ...string) {
+	var (
+		cpuProfile string
+		other      string
+	)
+
+	flagset := flag.NewFlagSet("binname", flag.ExitOnError)
+	flagset.SetOutput(os.Stdout) // For Examples to catch as output.
+
+	flagset.StringVar(&cpuProfile, "test.cpuprofile", "", "")
+	flagset.StringVar(&other, "other", "default-other-value", "")
+
+	passon := gentleParse(flagset, args)
+
+	fmt.Printf("cpuProfile: %q\nother     : %q\npasson    : %q\n", cpuProfile, other, passon)
 }

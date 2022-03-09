@@ -233,11 +233,11 @@ func gentleParse(flagset *flag.FlagSet, args []string) []string {
 			}
 			fmt.Fprintf(w, "%s\n", err)
 			flagset.SetOutput(w)
-			flag.Usage()
+			flagset.Usage()
 			os.Exit(1)
 		}
 
-		next = flag.Args()
+		next = flagset.Args()
 	}
 	return r
 }
