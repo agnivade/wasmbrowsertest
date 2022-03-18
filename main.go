@@ -190,58 +190,6 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-// gentleParse takes a flag.FlagSet, calls Parse to get its flags parsed,
-// and collects the arguments the FlagSet does not recognize, returning
-// the collected list.
-func gentleParse(flagset *flag.FlagSet, args []string) []string {
-	if len(args) == 0 {
-		return nil
-	}
-
-	r := make([]string, 0, len(args))
-
-	flagset.Init(flagset.Name(), flag.ContinueOnError)
-	w := flagset.Output()
-	flagset.SetOutput(ioutil.Discard)
-
-	// Put back the flagset's output, the flagset's Usage might be called later.
-	defer flagset.SetOutput(w)
-
-	next := args
-
-	for len(next) > 0 {
-		if next[0] == "--" {
-			r = append(r, next...) // include the "--" for the wasm image, it's what "go test" does.
-			break
-		}
-		if !strings.HasPrefix(next[0], "-") {
-			r, next = append(r, next[0]), next[1:]
-			continue
-		}
-		if err := flagset.Parse(next); err != nil {
-			const prefix = "flag provided but not defined: "
-			if strings.HasPrefix(err.Error(), prefix) {
-				pull := strings.TrimPrefix(err.Error(), prefix)
-				for next[0] != pull {
-					next = next[1:]
-					if len(next) == 0 {
-						panic("odd: pull not found: " + pull)
-					}
-				}
-				r, next = append(r, next[0]), next[1:]
-				continue
-			}
-			fmt.Fprintf(w, "%s\n", err)
-			flagset.SetOutput(w)
-			flagset.Usage()
-			os.Exit(1)
-		}
-
-		next = flagset.Args()
-	}
-	return r
-}
-
 // handleEvent responds to different events from the browser and takes
 // appropriate action.
 func handleEvent(ctx context.Context, ev interface{}, logger *log.Logger) {

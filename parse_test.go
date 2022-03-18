@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func ExampleEmpty() {
+func ExampleParseEmpty() {
 	testFlagSet()
 
 	// Empty in, empty out.
@@ -16,7 +16,7 @@ func ExampleEmpty() {
 	// passon    : []
 }
 
-func ExampleOther() {
+func ExampleParseOther() {
 	testFlagSetOther()
 
 	// Empty in, empty out.
@@ -27,7 +27,7 @@ func ExampleOther() {
 	// passon    : []
 }
 
-func ExampleVerbose() {
+func ExampleParseVerbose() {
 	testFlagSet("-test.v")
 
 	// One unrecognized in, same out.
@@ -37,7 +37,7 @@ func ExampleVerbose() {
 	// passon    : ["-test.v"]
 }
 
-func ExampleCpu1() {
+func ExampleParseCpu1() {
 	testFlagSet("-test.v", "-test.cpuprofile", "cpu1.out")
 
 	// One unrecognized followed by ours.
@@ -47,7 +47,7 @@ func ExampleCpu1() {
 	// passon    : ["-test.v"]
 }
 
-func ExampleCpu2() {
+func ExampleParseCpu2() {
 	testFlagSet("-test.cpuprofile", "cpu2.out", "-test.v")
 
 	// Ours followed by one unrecognized.
@@ -57,7 +57,27 @@ func ExampleCpu2() {
 	// passon    : ["-test.v"]
 }
 
-func ExampleExtraBool1() {
+func ExampleParseEqualCpu3() {
+	testFlagSet("-test.cpuprofile", "cpu3.out", "-test.v=true")
+
+	// Ours followed by one unrecognized that uses "=".
+
+	// Output:
+	// cpuProfile: "cpu3.out"
+	// passon    : ["-test.v=true"]
+}
+
+func ExampleParseEqualCpu4() {
+	testFlagSet("-test.v=true", "-test.cpuprofile", "cpu4.out")
+
+	// Swapping order from Cpu3 test, the unrecognized first, followed by ours.
+
+	// Output:
+	// cpuProfile: "cpu4.out"
+	// passon    : ["-test.v=true"]
+}
+
+func ExampleParseExtraBool1() {
 	testFlagSet("-test.cpuprofile", "cpu.out", "-test.v", "-bool")
 
 	// Ours followed by two unrecognized.
@@ -67,7 +87,7 @@ func ExampleExtraBool1() {
 	// passon    : ["-test.v" "-bool"]
 }
 
-func ExampleExtraBool2() {
+func ExampleParseExtraBool2() {
 	testFlagSet("-bool", "-test.cpuprofile", "cpu.out", "-test.v")
 
 	// Ours between two unrecognized.
@@ -77,7 +97,7 @@ func ExampleExtraBool2() {
 	// passon    : ["-bool" "-test.v"]
 }
 
-func ExampleExtraStringNoDDash1() {
+func ExampleParseExtraStringNoDDash1() {
 	testFlagSet("-test.cpuprofile", "cpu.out", "-test.v", "-bool", "-string", "last")
 
 	// Ours pulled out from front.
@@ -87,7 +107,7 @@ func ExampleExtraStringNoDDash1() {
 	// passon    : ["-test.v" "-bool" "-string" "last"]
 }
 
-func ExampleExtraStringNoDDash2() {
+func ExampleParseExtraStringNoDDash2() {
 	testFlagSet("-string", "first", "-test.cpuprofile", "cpu.out", "-test.v", "-bool")
 
 	// Ours pulled out from middle.
@@ -97,7 +117,7 @@ func ExampleExtraStringNoDDash2() {
 	// passon    : ["-string" "first" "-test.v" "-bool"]
 }
 
-func ExampleExtraStringWithDDash() {
+func ExampleParseDDash1ExtraString() {
 	testFlagSet("-test.cpuprofile", "cpu.out", "-test.v", "--", "-bool", "-string", "abc")
 
 	// Ours pulled out from front and the -- appears afterwards.
@@ -107,7 +127,17 @@ func ExampleExtraStringWithDDash() {
 	// passon    : ["-test.v" "--" "-bool" "-string" "abc"]
 }
 
-func ExampleUnprocessedProfile() {
+func ExampleParseDDash2ExtraString() {
+	testFlagSet("-test.cpuprofile", "cpu.out", "--", "-test.v", "-bool", "-string", "abc")
+
+	// Ours pulled out from front and the -- appears afterwards.
+
+	// Output:
+	// cpuProfile: "cpu.out"
+	// passon    : ["--" "-test.v" "-bool" "-string" "abc"]
+}
+
+func ExampleParseDDash3UnprocessedProfile() {
 	testFlagSet("--", "-test.cpuprofile", "cpu.other", "-test.v", "-bool", "-string", "abc")
 
 	// Ours *not* pulled out because it appears after a --, just as "go test" would handle it.
