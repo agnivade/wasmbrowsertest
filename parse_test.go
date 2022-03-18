@@ -4,150 +4,182 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
+	"testing"
 )
 
-func ExampleParseEmpty() {
-	testFlagSet()
+// The formst of these tests for the gentleParse function
+// are generally that the args are presented to the testParse function
+// and the expected results are presented as separate lines to the
+// Expect result.
 
+func TestParseEmpty(t *testing.T) {
 	// Empty in, empty out.
 
-	// Output:
-	// cpuProfile: ""
-	// passon    : []
+	testParse().Expect(t,
+		`cpuProfile: ""`,
+		`passon    : []`,
+	)
 }
 
-func ExampleParseOther() {
-	testFlagSetOther()
+func TestParseOther(t *testing.T) {
+	// Empty in, empty out, with an extra `other` variable that has a default.
 
-	// Empty in, empty out.
-
-	// Output:
-	// cpuProfile: ""
-	// other     : "default-other-value"
-	// passon    : []
+	testParseOther().Expect(t,
+		`cpuProfile: ""`,
+		`other     : "default-other-value"`,
+		`passon    : []`,
+	)
 }
 
-func ExampleParseVerbose() {
-	testFlagSet("-test.v")
-
+func TestParseVerbose(t *testing.T) {
 	// One unrecognized in, same out.
 
-	// Output:
-	// cpuProfile: ""
-	// passon    : ["-test.v"]
+	testParse("-test.v").Expect(t,
+		`cpuProfile: ""`,
+		`passon    : ["-test.v"]`,
+	)
 }
 
-func ExampleParseCpu1() {
-	testFlagSet("-test.v", "-test.cpuprofile", "cpu1.out")
-
+func TestParseCpu1(t *testing.T) {
 	// One unrecognized followed by ours.
 
-	// Output:
-	// cpuProfile: "cpu1.out"
-	// passon    : ["-test.v"]
+	testParse("-test.v", "-test.cpuprofile", "cpu1.out").Expect(t,
+		`cpuProfile: "cpu1.out"`,
+		`passon    : ["-test.v"]`,
+	)
 }
 
-func ExampleParseCpu2() {
-	testFlagSet("-test.cpuprofile", "cpu2.out", "-test.v")
-
+func TestParseCpu2(t *testing.T) {
 	// Ours followed by one unrecognized.
 
-	// Output:
-	// cpuProfile: "cpu2.out"
-	// passon    : ["-test.v"]
+	testParse("-test.cpuprofile", "cpu2.out", "-test.v").Expect(t,
+		`cpuProfile: "cpu2.out"`,
+		`passon    : ["-test.v"]`,
+	)
 }
 
-func ExampleParseEqualCpu3() {
-	testFlagSet("-test.cpuprofile", "cpu3.out", "-test.v=true")
-
+func TestParseEqualCpu3(t *testing.T) {
 	// Ours followed by one unrecognized that uses "=".
 
-	// Output:
-	// cpuProfile: "cpu3.out"
-	// passon    : ["-test.v=true"]
+	testParse("-test.cpuprofile", "cpu3.out", "-test.v=true").Expect(t,
+		`cpuProfile: "cpu3.out"`,
+		`passon    : ["-test.v=true"]`,
+	)
 }
 
-func ExampleParseEqualCpu4() {
-	testFlagSet("-test.v=true", "-test.cpuprofile", "cpu4.out")
-
+func TestParseEqualCpu4(t *testing.T) {
 	// Swapping order from Cpu3 test, the unrecognized first, followed by ours.
 
-	// Output:
-	// cpuProfile: "cpu4.out"
-	// passon    : ["-test.v=true"]
+	testParse("-test.v=true", "-test.cpuprofile", "cpu4.out").Expect(t,
+		`cpuProfile: "cpu4.out"`,
+		`passon    : ["-test.v=true"]`,
+	)
 }
 
-func ExampleParseExtraBool1() {
-	testFlagSet("-test.cpuprofile", "cpu.out", "-test.v", "-bool")
-
+func TestParseExtraBool1(t *testing.T) {
 	// Ours followed by two unrecognized.
 
-	// Output:
-	// cpuProfile: "cpu.out"
-	// passon    : ["-test.v" "-bool"]
+	testParse("-test.cpuprofile", "cpu.out", "-test.v", "-bool").Expect(t,
+		`cpuProfile: "cpu.out"`,
+		`passon    : ["-test.v" "-bool"]`,
+	)
 }
 
-func ExampleParseExtraBool2() {
-	testFlagSet("-bool", "-test.cpuprofile", "cpu.out", "-test.v")
-
+func TestParseExtraBool2(t *testing.T) {
 	// Ours between two unrecognized.
 
-	// Output:
-	// cpuProfile: "cpu.out"
-	// passon    : ["-bool" "-test.v"]
+	testParse("-bool", "-test.cpuprofile", "cpu.out", "-test.v").Expect(t,
+		`cpuProfile: "cpu.out"`,
+		`passon    : ["-bool" "-test.v"]`,
+	)
 }
 
-func ExampleParseExtraStringNoDDash1() {
-	testFlagSet("-test.cpuprofile", "cpu.out", "-test.v", "-bool", "-string", "last")
-
+func TestParseExtraStringNoDDash1(t *testing.T) {
 	// Ours pulled out from front.
 
-	// Output:
-	// cpuProfile: "cpu.out"
-	// passon    : ["-test.v" "-bool" "-string" "last"]
+	testParse("-test.cpuprofile", "cpu.out", "-test.v", "-bool", "-string", "last").Expect(t,
+		`cpuProfile: "cpu.out"`,
+		`passon    : ["-test.v" "-bool" "-string" "last"]`,
+	)
 }
 
-func ExampleParseExtraStringNoDDash2() {
-	testFlagSet("-string", "first", "-test.cpuprofile", "cpu.out", "-test.v", "-bool")
-
+func TestParseExtraStringNoDDash2(t *testing.T) {
 	// Ours pulled out from middle.
 
-	// Output:
-	// cpuProfile: "cpu.out"
-	// passon    : ["-string" "first" "-test.v" "-bool"]
+	testParse("-string", "first", "-test.cpuprofile", "cpu.out", "-test.v", "-bool").Expect(t,
+		`cpuProfile: "cpu.out"`,
+		`passon    : ["-string" "first" "-test.v" "-bool"]`,
+	)
 }
 
-func ExampleParseDDash1ExtraString() {
-	testFlagSet("-test.cpuprofile", "cpu.out", "-test.v", "--", "-bool", "-string", "abc")
-
+func TestParseDDash1ExtraString(t *testing.T) {
 	// Ours pulled out from front and the -- appears afterwards.
 
-	// Output:
-	// cpuProfile: "cpu.out"
-	// passon    : ["-test.v" "--" "-bool" "-string" "abc"]
+	testParse("-test.cpuprofile", "cpu.out", "-test.v", "--", "-bool", "-string", "abc").Expect(t,
+		`cpuProfile: "cpu.out"`,
+		`passon    : ["-test.v" "--" "-bool" "-string" "abc"]`,
+	)
 }
 
-func ExampleParseDDash2ExtraString() {
-	testFlagSet("-test.cpuprofile", "cpu.out", "--", "-test.v", "-bool", "-string", "abc")
-
+func TestParseDDash2ExtraString(t *testing.T) {
 	// Ours pulled out from front and the -- appears afterwards.
 
-	// Output:
-	// cpuProfile: "cpu.out"
-	// passon    : ["--" "-test.v" "-bool" "-string" "abc"]
+	testParse("-test.cpuprofile", "cpu.out", "--", "-test.v", "-bool", "-string", "abc").Expect(t,
+		`cpuProfile: "cpu.out"`,
+		`passon    : ["--" "-test.v" "-bool" "-string" "abc"]`,
+	)
 }
 
-func ExampleParseDDash3UnprocessedProfile() {
-	testFlagSet("--", "-test.cpuprofile", "cpu.other", "-test.v", "-bool", "-string", "abc")
-
+func TestParseDDash3UnprocessedProfile(t *testing.T) {
 	// Ours *not* pulled out because it appears after a --, just as "go test" would handle it.
 
-	// Output:
-	// cpuProfile: ""
-	// passon    : ["--" "-test.cpuprofile" "cpu.other" "-test.v" "-bool" "-string" "abc"]
+	testParse("--", "-test.cpuprofile", "cpu.other", "-test.v", "-bool", "-string", "abc").Expect(t,
+		`cpuProfile: ""`,
+		`passon    : ["--" "-test.cpuprofile" "cpu.other" "-test.v" "-bool" "-string" "abc"]`,
+	)
 }
 
-func testFlagSet(args ...string) {
+type testParseGot struct {
+	got []string
+}
+
+func makeParseGot(lines ...string) testParseGot {
+	return testParseGot{got: lines}
+}
+
+func (g testParseGot) failure(expect []string, format string, args ...interface{}) string {
+	buf := new(strings.Builder)
+	fmt.Fprintf(buf, format+"\n", args...)
+	fmt.Fprintf(buf, "  Got:\n")
+	for i := range g.got {
+		fmt.Fprintf(buf, "    %s\n", g.got[i])
+	}
+	fmt.Fprintf(buf, "  Expected:\n")
+	for i := range expect {
+		fmt.Fprintf(buf, "    %s\n", expect[i])
+	}
+	return buf.String()
+}
+
+func (g testParseGot) Expect(t testing.TB, expect ...string) {
+	if len(g.got) != len(expect) {
+		t.Helper()
+		t.Errorf("%s",
+			g.failure(expect, "got %d lines, expected %d", len(g.got), len(expect)))
+		return
+	}
+	for i := range g.got {
+		if g.got[i] != expect[i] {
+			t.Helper()
+			t.Errorf("%s",
+				g.failure(expect, "at least line %d of got and expected don't match", i+1))
+			return
+		}
+	}
+}
+
+func testParse(args ...string) testParseGot {
 	var (
 		cpuProfile string
 	)
@@ -159,10 +191,16 @@ func testFlagSet(args ...string) {
 
 	passon := gentleParse(flagset, args)
 
-	fmt.Printf("cpuProfile: %q\npasson    : %q\n", cpuProfile, passon)
+	return makeParseGot(
+		fmt.Sprintf("cpuProfile: %q", cpuProfile),
+		fmt.Sprintf("passon    : %q", passon),
+	)
 }
 
-func testFlagSetOther(args ...string) {
+// This one acts more like an example of how to perform a different type of test.
+// It was perhaps useful in early stages of building unit tests but then seems
+// to have gone unused except for the default, empty, case.
+func testParseOther(args ...string) testParseGot {
 	var (
 		cpuProfile string
 		other      string
@@ -176,5 +214,9 @@ func testFlagSetOther(args ...string) {
 
 	passon := gentleParse(flagset, args)
 
-	fmt.Printf("cpuProfile: %q\nother     : %q\npasson    : %q\n", cpuProfile, other, passon)
+	return makeParseGot(
+		fmt.Sprintf("cpuProfile: %q", cpuProfile),
+		fmt.Sprintf("other     : %q", other),
+		fmt.Sprintf("passon    : %q", passon),
+	)
 }
