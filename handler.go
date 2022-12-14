@@ -19,21 +19,23 @@ import (
 var indexHTML string
 
 type wasmServer struct {
-	indexTmpl  *template.Template
-	wasmFile   string
-	wasmExecJS []byte
-	args       []string
-	envMap     map[string]string
-	logger     *log.Logger
+	indexTmpl    *template.Template
+	wasmFile     string
+	wasmExecJS   []byte
+	args         []string
+	coverageFile string
+	envMap       map[string]string
+	logger       *log.Logger
 }
 
-func NewWASMServer(wasmFile string, args []string, l *log.Logger) (http.Handler, error) {
+func NewWASMServer(wasmFile string, args []string, coverageFile string, l *log.Logger) (http.Handler, error) {
 	var err error
 	srv := &wasmServer{
-		wasmFile: wasmFile,
-		args:     args,
-		logger:   l,
-		envMap:   make(map[string]string),
+		wasmFile:     wasmFile,
+		args:         args,
+		coverageFile: coverageFile,
+		logger:       l,
+		envMap:       make(map[string]string),
 	}
 
 	for _, env := range os.Environ() {
@@ -60,13 +62,15 @@ func (ws *wasmServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/", "/index.html":
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		data := struct {
-			WASMFile string
-			Args     []string
-			EnvMap   map[string]string
+			WASMFile     string
+			Args         []string
+			CoverageFile string
+			EnvMap       map[string]string
 		}{
-			WASMFile: filepath.Base(ws.wasmFile),
-			Args:     ws.args,
-			EnvMap:   ws.envMap,
+			WASMFile:     filepath.Base(ws.wasmFile),
+			Args:         ws.args,
+			CoverageFile: ws.coverageFile,
+			EnvMap:       ws.envMap,
 		}
 		err := ws.indexTmpl.Execute(w, data)
 		if err != nil {

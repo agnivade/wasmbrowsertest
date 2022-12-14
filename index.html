@@ -30,9 +30,42 @@ license that can be found in the LICENSE file.
 		function goExit(code) {
 			exitCode = code;
 		}
+		function enosys() {
+			const err = new Error("not implemented");
+			err.code = "ENOSYS";
+			return err;
+		}
+		let coverageProfileContents;
 
 		(async() => {
 			const go = new Go();
+			const defaultWriteSync = window.fs.writeSync;
+			const coverFileDescriptor = 3; // 1 above standard descriptors (0-2)
+			const coverFilePath = {{.CoverageFile}};
+			window.fs.open = (path, flags, mode, callback) => {
+				if (path !== coverFilePath) {
+					callback(enosys());
+					return;
+				}
+				coverageProfileContents = "";
+				callback(null, coverFileDescriptor);
+			};
+			window.fs.close = (fd, callback) => {
+				if (fd !== coverFileDescriptor) {
+					callback(enosys());
+					return;
+				}
+				callback(null);
+			};
+			const decoder = new TextDecoder("utf-8");
+			window.fs.writeSync = (fd, buf) => {
+				if (fd === coverFileDescriptor) {
+					coverageProfileContents += decoder.decode(buf);
+					return buf.length;
+				}
+				return defaultWriteSync(fd, buf);
+			};
+
 			go.argv = [{{range $i, $item := .Args}} {{if $i}}, {{end}} "{{$item}}" {{end}}];
 			// The notFirst variable sets itself to true after first iteration. This is to put commas in between.
 			go.env = { {{ $notFirst := false }}

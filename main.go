@@ -25,7 +25,8 @@ import (
 )
 
 var (
-	cpuProfile *string
+	cpuProfile      *string
+	coverageProfile *string
 )
 
 func main() {
@@ -45,6 +46,7 @@ func main() {
 	}
 
 	cpuProfile = flag.String("test.cpuprofile", "", "")
+	coverageProfile = flag.String("test.coverprofile", "", "")
 
 	wasmFile := os.Args[1]
 	ext := path.Ext(wasmFile)
@@ -61,6 +63,9 @@ func main() {
 
 	passon := gentleParse(flag.CommandLine, os.Args[2:])
 	passon = append([]string{wasmFile}, passon...)
+	if *coverageProfile != "" {
+		passon = append(passon, "-test.coverprofile="+*coverageProfile)
+	}
 
 	// Need to generate a random port every time for tests in parallel to run.
 	l, err := net.Listen("tcp", "localhost:")
@@ -77,7 +82,7 @@ func main() {
 	}
 
 	// Setup web server.
-	handler, err := NewWASMServer(wasmFile, passon, logger)
+	handler, err := NewWASMServer(wasmFile, passon, *coverageProfile, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -117,10 +122,12 @@ func main() {
 		}
 		done <- struct{}{}
 	}()
+	var coverageProfileContents string
 	tasks := []chromedp.Action{
 		chromedp.Navigate(`http://localhost:` + port),
 		chromedp.WaitEnabled(`#doneButton`),
 		chromedp.Evaluate(`exitCode;`, &exitCode),
+		chromedp.Evaluate(`coverageProfileContents;`, &coverageProfileContents),
 	}
 	if *cpuProfile != "" {
 		// Prepend and append profiling tasks
@@ -150,6 +157,11 @@ func main() {
 			}
 
 			return WriteProfile(profile, outF, funcMap)
+		}))
+	}
+	if *coverageProfile != "" {
+		tasks = append(tasks, chromedp.ActionFunc(func(ctx context.Context) error {
+			return os.WriteFile(*coverageProfile, []byte(coverageProfileContents), 0644)
 		}))
 	}
 
