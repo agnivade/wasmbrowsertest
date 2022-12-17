@@ -36,13 +36,11 @@ license that can be found in the LICENSE file.
 			return err;
 		}
 		let coverageProfileContents;
-
-		(async() => {
-			const go = new Go();
-			const defaultWriteSync = window.fs.writeSync;
+		function overrideFS(fs) {
+			const defaultWriteSync = globalThis.fs.writeSync;
 			const coverFileDescriptor = 3; // 1 above standard descriptors (0-2)
 			const coverFilePath = {{.CoverageFile}};
-			window.fs.open = (path, flags, mode, callback) => {
+			fs.open = (path, flags, mode, callback) => {
 				if (path !== coverFilePath) {
 					callback(enosys());
 					return;
@@ -50,22 +48,29 @@ license that can be found in the LICENSE file.
 				coverageProfileContents = "";
 				callback(null, coverFileDescriptor);
 			};
-			window.fs.close = (fd, callback) => {
+			fs.close = (fd, callback) => {
 				if (fd !== coverFileDescriptor) {
 					callback(enosys());
 					return;
 				}
 				callback(null);
 			};
+			if (!globalThis.TextDecoder) {
+				throw new Error("globalThis.TextDecoder is not available, polyfill required");
+			}
 			const decoder = new TextDecoder("utf-8");
-			window.fs.writeSync = (fd, buf) => {
+			fs.writeSync = (fd, buf) => {
 				if (fd === coverFileDescriptor) {
 					coverageProfileContents += decoder.decode(buf);
 					return buf.length;
 				}
 				return defaultWriteSync(fd, buf);
 			};
+		}
 
+		(async() => {
+			const go = new Go();
+			overrideFS(globalThis.fs)
 			go.argv = [{{range $i, $item := .Args}} {{if $i}}, {{end}} "{{$item}}" {{end}}];
 			// The notFirst variable sets itself to true after first iteration. This is to put commas in between.
 			go.env = { {{ $notFirst := false }}
