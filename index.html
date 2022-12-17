@@ -35,36 +35,41 @@ license that can be found in the LICENSE file.
 			err.code = "ENOSYS";
 			return err;
 		}
-		let coverageProfileContents;
+		let coverageProfileContents = "";
 		function overrideFS(fs) {
-			const defaultWriteSync = globalThis.fs.writeSync;
-			const coverFileDescriptor = 3; // 1 above standard descriptors (0-2)
+			// A typical runtime opens fd's in sequence above the standard descriptors (0-2).
+			// Choose an arbitrarily high fd for the custom coverage file to avoid conflict with the actual runtime fd's.
+			const coverFileDescriptor = Number.MAX_SAFE_INTEGER; 
 			const coverFilePath = {{.CoverageFile}};
+			// Wraps the default operations with bind() to ensure internal usage of 'this' continues to work.
+			const defaultOpen = fs.open.bind(fs);
 			fs.open = (path, flags, mode, callback) => {
-				if (path !== coverFilePath) {
-					callback(enosys());
+				if (path === coverFilePath) {
+					callback(null, coverFileDescriptor);
 					return;
 				}
-				coverageProfileContents = "";
-				callback(null, coverFileDescriptor);
+				defaultOpen(path, flags, mode, callback);
 			};
+			const defaultClose = fs.close.bind(fs);
 			fs.close = (fd, callback) => {
-				if (fd !== coverFileDescriptor) {
-					callback(enosys());
+				if (fd === coverFileDescriptor) {
+					callback(null);
 					return;
 				}
-				callback(null);
+				defaultClose(fd, callback);
 			};
 			if (!globalThis.TextDecoder) {
 				throw new Error("globalThis.TextDecoder is not available, polyfill required");
 			}
 			const decoder = new TextDecoder("utf-8");
-			fs.writeSync = (fd, buf) => {
+			const defaultWrite = fs.write.bind(fs);
+			fs.write = (fd, buf, offset, length, position, callback) => {
 				if (fd === coverFileDescriptor) {
 					coverageProfileContents += decoder.decode(buf);
-					return buf.length;
+					callback(null, buf.length);
+					return;
 				}
-				return defaultWriteSync(fd, buf);
+				defaultWrite(fd, buf, offset, length, position, callback);
 			};
 		}
 
