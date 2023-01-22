@@ -24,44 +24,48 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-var (
-	cpuProfile      *string
-	coverageProfile *string
-)
-
 func main() {
-	// NOTE: Since `os.Exit` will cause the process to exit, this defer
-	// must be at the bottom of the defer stack to allow all other defer calls to
-	// be called first.
-	exitCode := 0
+	exitCode := run(os.Args, os.Stderr, flag.CommandLine)
+	os.Exit(exitCode)
+}
+
+func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (exitCode int) {
+	logger := log.New(errOutput, "[wasmbrowsertest]: ", log.LstdFlags|log.Lshortfile)
 	defer func() {
-		if exitCode != 0 {
-			os.Exit(exitCode)
+		r := recover()
+		if r != nil {
+			logger.Printf("Panicked: %+v", r)
+			exitCode = 1
 		}
 	}()
 
-	logger := log.New(os.Stderr, "[wasmbrowsertest]: ", log.LstdFlags|log.Lshortfile)
-	if len(os.Args) < 2 {
-		logger.Fatal("Please pass a wasm file as a parameter")
+	if len(args) < 2 {
+		logger.Println("Please pass a wasm file as a parameter")
+		return 1
 	}
 
-	cpuProfile = flag.String("test.cpuprofile", "", "")
-	coverageProfile = flag.String("test.coverprofile", "", "")
+	cpuProfile := flagSet.String("test.cpuprofile", "", "")
+	coverageProfile := flagSet.String("test.coverprofile", "", "")
 
-	wasmFile := os.Args[1]
+	wasmFile := args[1]
 	ext := path.Ext(wasmFile)
 	// net/http code does not take js/wasm path if it is a .test binary.
 	if ext == ".test" {
 		wasmFile = strings.Replace(wasmFile, ext, ".wasm", -1)
-		err := copyFile(os.Args[1], wasmFile)
+		err := copyFile(args[1], wasmFile)
 		if err != nil {
-			logger.Fatal(err)
+			logger.Println(err)
+			return 1
 		}
 		defer os.Remove(wasmFile)
-		os.Args[1] = wasmFile
+		args[1] = wasmFile
 	}
 
-	passon := gentleParse(flag.CommandLine, os.Args[2:])
+	passon, err := gentleParse(flagSet, args[2:])
+	if err != nil {
+		logger.Println(err)
+		return 1
+	}
 	passon = append([]string{wasmFile}, passon...)
 	if *coverageProfile != "" {
 		passon = append(passon, "-test.coverprofile="+*coverageProfile)
@@ -70,21 +74,25 @@ func main() {
 	// Need to generate a random port every time for tests in parallel to run.
 	l, err := net.Listen("tcp", "localhost:")
 	if err != nil {
-		logger.Fatal(err)
+		logger.Println(err)
+		return 1
 	}
 	tcpL, ok := l.(*net.TCPListener)
 	if !ok {
-		logger.Fatal("net.Listen did not return a TCPListener")
+		logger.Println("net.Listen did not return a TCPListener")
+		return 1
 	}
 	_, port, err := net.SplitHostPort(tcpL.Addr().String())
 	if err != nil {
-		logger.Fatal(err)
+		logger.Println(err)
+		return 1
 	}
 
 	// Setup web server.
 	handler, err := NewWASMServer(wasmFile, passon, *coverageProfile, logger)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Println(err)
+		return 1
 	}
 	httpServer := &http.Server{
 		Handler: handler,
@@ -181,6 +189,7 @@ func main() {
 		logger.Println(err)
 	}
 	<-done
+	return exitCode
 }
 
 func copyFile(src, dst string) error {

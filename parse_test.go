@@ -184,7 +184,10 @@ func testParse(args ...string) testParseGot {
 
 	flagset.StringVar(&cpuProfile, "test.cpuprofile", "", "")
 
-	passon := gentleParse(flagset, args)
+	passon, err := gentleParse(flagset, args)
+	if err != nil {
+		panic(err)
+	}
 
 	return makeParseGot(
 		fmt.Sprintf("cpuProfile: %q", cpuProfile),
@@ -207,7 +210,10 @@ func testParseOther(args ...string) testParseGot {
 	flagset.StringVar(&cpuProfile, "test.cpuprofile", "", "")
 	flagset.StringVar(&other, "other", "default-other-value", "")
 
-	passon := gentleParse(flagset, args)
+	passon, err := gentleParse(flagset, args)
+	if err != nil {
+		panic(err)
+	}
 
 	return makeParseGot(
 		fmt.Sprintf("cpuProfile: %q", cpuProfile),
