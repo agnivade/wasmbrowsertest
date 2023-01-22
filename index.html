@@ -89,7 +89,12 @@ license that can be found in the LICENSE file.
 			}).catch((err) => {
 				console.error(err);
 			});
-			await go.run(inst);
+			try {
+				await go.run(inst);
+			} catch(e) {
+				exitCode = 1
+				console.error(e)
+			}
 			document.getElementById("doneButton").disabled = false;
 		})();
 	</script>

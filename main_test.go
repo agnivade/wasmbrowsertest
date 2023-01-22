@@ -71,6 +71,7 @@ func buildTestWasm(t *testing.T, path string) string {
 }
 
 func TestRunPassing(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	writeFile(t, dir, "go.mod", `
 module foo
@@ -91,5 +92,74 @@ func TestFoo(t *testing.T) {
 	_, exitCode := testRun(t, wasmFile, "-test.v")
 	if exitCode != 0 {
 		t.Errorf("Test run should pass, got exit code %d", exitCode)
+	}
+}
+
+func TestRunFailing(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, dir, "go.mod", `
+module foo
+`)
+	writeFile(t, dir, "foo_test.go", `
+package foo
+
+import "testing"
+
+func TestFoo(t *testing.T) {
+	t.Errorf("foo failed")
+}
+`)
+	wasmFile := buildTestWasm(t, dir)
+
+	_, exitCode := testRun(t, wasmFile)
+	if exitCode != 1 {
+		t.Errorf("Test run should fail, got exit code %d", exitCode)
+	}
+}
+
+func TestRunPanicFails(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, dir, "go.mod", `
+module foo
+`)
+	writeFile(t, dir, "foo_test.go", `
+package foo
+
+import "testing"
+
+func TestFooPanic(t *testing.T) {
+	panic("foo failed")
+}
+`)
+	wasmFile := buildTestWasm(t, dir)
+
+	_, exitCode := testRun(t, wasmFile)
+	if exitCode != 1 {
+		t.Errorf("Test run should fail, got exit code %d", exitCode)
+	}
+}
+
+func TestRunGoroutinePanicFails(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, dir, "go.mod", `
+module foo
+`)
+	writeFile(t, dir, "foo_test.go", `
+package foo
+
+import "testing"
+
+func TestFooGoroutinePanic(t *testing.T) {
+	go panic("foo failed")
+}
+`)
+	wasmFile := buildTestWasm(t, dir)
+
+	_, exitCode := testRun(t, wasmFile)
+	if exitCode != 1 {
+		t.Errorf("Test run should fail, got exit code %d", exitCode)
 	}
 }
