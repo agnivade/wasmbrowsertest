@@ -163,3 +163,32 @@ func TestFooGoroutinePanic(t *testing.T) {
 		t.Errorf("Test run should fail, got exit code %d", exitCode)
 	}
 }
+
+func TestRunNextEventLoopPanic(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, dir, "go.mod", `
+module foo
+`)
+	writeFile(t, dir, "foo_test.go", `
+package foo
+
+import (
+	"syscall/js"
+	"testing"
+)
+
+func TestFooNextEventLoopPanic(t *testing.T) {
+	js.Global().Call("setTimeout", js.FuncOf(func(js.Value, []js.Value) interface{} {
+		panic("bad")
+		return nil
+	}), 0)
+}
+`)
+	wasmFile := buildTestWasm(t, dir)
+
+	_, exitCode := testRun(t, wasmFile)
+	if exitCode != 1 {
+		t.Errorf("Test run should fail, got exit code %d", exitCode)
+	}
+}

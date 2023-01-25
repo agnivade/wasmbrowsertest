@@ -175,6 +175,8 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (exitCode in
 
 	err = chromedp.Run(ctx, tasks...)
 	if err != nil {
+		// Browser did not exit cleanly. Likely failed with an uncaught error.
+		exitCode = 1
 		logger.Println(err)
 	}
 	if exitCode != 0 {
