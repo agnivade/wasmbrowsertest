@@ -124,7 +124,7 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (exitCode in
 
 	done := make(chan struct{})
 	go func() {
-		err = httpServer.Serve(l)
+		err := httpServer.Serve(l)
 		if err != http.ErrServerClosed {
 			logger.Println(err)
 		}
