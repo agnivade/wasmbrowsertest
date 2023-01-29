@@ -19,7 +19,7 @@ jobs:
         go vet .
         gofmt -l -s -w .
     - name: Install cleanenv
-      run: go install ./internal/cmd/cleanenv
+      run: go install ./cmd/cleanenv
     - name: Test
       run: cleanenv -remove-prefix GITHUB_ -remove-prefix JAVA_ -- go test -v -race ./...
     - name: Install
