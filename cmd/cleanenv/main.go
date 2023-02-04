@@ -22,7 +22,7 @@ func main() {
 	app := App{
 		Args:   os.Args[1:],
 		Env:    os.Environ(),
-		Out:    os.Stdout,
+		StdOut: os.Stdout,
 		ErrOut: os.Stderr,
 	}
 	err := app.Run()
@@ -38,9 +38,9 @@ func main() {
 }
 
 type App struct {
-	Args        []string
-	Env         []string
-	Out, ErrOut io.Writer
+	Args           []string
+	Env            []string
+	StdOut, ErrOut io.Writer
 }
 
 func (a App) Run() error {
@@ -65,7 +65,7 @@ func (a App) Run() error {
 	}
 	cmd := exec.Command(arg0, argv...)
 	cmd.Env = cleanEnv
-	cmd.Stdout = a.Out
+	cmd.Stdout = a.StdOut
 	cmd.Stderr = a.ErrOut
 	return cmd.Run()
 }

@@ -76,7 +76,7 @@ func TestRun(t *testing.T) {
 			app := App{
 				Args:   tc.args,
 				Env:    tc.env,
-				Out:    &output,
+				StdOut: &output,
 				ErrOut: &output,
 			}
 			err := app.Run()
