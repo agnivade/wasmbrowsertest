@@ -106,25 +106,6 @@ jobs:
       uses: actions/checkout@v2
 ```
 
-#### `total length of command line and environment variables exceeds limit`
-
-If the error `total length of command line and environment variables exceeds limit` appears, then
-the current environment variables' total size has exceeded the maximum when executing Go Wasm binaries.
-
-To resolve this issue, install `cleanenv` and use it to prefix your command.
-
-For example, if this is the failing line in GitHub Actions:
-```bash
-go test -cover ./...
-```
-The new commands should be the following:
-```bash
-go install github.com/agnivade/wasmbrowsertest/cmd/cleanenv@latest
-cleanenv -remove-prefix GITHUB_ -- go test -cover ./...
-```
-
-The `cleanenv` command above removes all environment variables prefixed with `GITHUB_` before running the command after the `--`.
-
 ### What sorts of browsers are supported ?
 
 This tool uses the [ChromeDP](https://chromedevtools.github.io/devtools-protocol/) protocol to run the tests inside a Chrome browser. So Chrome or any blink-based browser will work.
@@ -132,3 +113,28 @@ This tool uses the [ChromeDP](https://chromedevtools.github.io/devtools-protocol
 ### Why not firefox ?
 
 Great question. The initial idea was to use a Selenium API and drive any browser to run the tests. But unfortunately, geckodriver does not support the ability to capture console logs - https://github.com/mozilla/geckodriver/issues/284. Hence, the shift to use the ChromeDP protocol circumvents the need to have any external driver binary and just have a browser installed in the machine.
+
+## Errors
+
+### `total length of command line and environment variables exceeds limit`
+
+If the error `total length of command line and environment variables exceeds limit` appears, then
+the current environment variables' total size has exceeded the maximum when executing Go Wasm binaries.
+
+To resolve this issue, install `cleanenv` and use it to prefix your command.
+
+For example, if these are the failing lines in GitHub Actions:
+```bash
+export GOOS=js GOARCH=wasm
+go test -cover ./...
+```
+The new commands should be the following:
+```bash
+go install github.com/agnivade/wasmbrowsertest/cmd/cleanenv@latest
+
+export GOOS=js GOARCH=wasm
+cleanenv -remove-prefix GITHUB_ -- go test -cover ./...
+```
+
+The `cleanenv` command above removes all environment variables prefixed with `GITHUB_` before running the command after the `--`.
+
