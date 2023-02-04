@@ -123,7 +123,7 @@ the current environment variables' total size has exceeded the maximum when exec
 
 To resolve this issue, install `cleanenv` and use it to prefix your command.
 
-For example, if these are the failing lines in GitHub Actions:
+For example, if these commands are used:
 ```bash
 export GOOS=js GOARCH=wasm
 go test -cover ./...
@@ -137,4 +137,4 @@ cleanenv -remove-prefix GITHUB_ -- go test -cover ./...
 ```
 
 The `cleanenv` command above removes all environment variables prefixed with `GITHUB_` before running the command after the `--`.
-
+The `-remove-prefix` flag can be repeated multiple times to remove even more environment variables.
