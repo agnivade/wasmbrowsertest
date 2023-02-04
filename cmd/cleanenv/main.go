@@ -1,3 +1,11 @@
+// Command cleanenv removes all environment variables that match given prefixes before running its arguments as a command.
+//
+// For example, this is useful in GitHub Actions:
+//
+//	export GOOS=js GOARCH=wasm
+//	cleanenv -remove-prefix GITHUB_ -- go test -cover ./...
+//
+// The '-remove-prefix' flag can be repeated multiple times to remove even more environment variables.
 package main
 
 import (
