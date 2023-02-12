@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -25,23 +26,24 @@ import (
 )
 
 func main() {
-	exitCode := run(os.Args, os.Stderr, flag.CommandLine)
-	os.Exit(exitCode)
+	err := run(os.Args, os.Stderr, flag.CommandLine)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
-func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (exitCode int) {
+func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (returnedErr error) {
 	logger := log.New(errOutput, "[wasmbrowsertest]: ", log.LstdFlags|log.Lshortfile)
 	defer func() {
 		r := recover()
 		if r != nil {
-			logger.Printf("Panicked: %+v", r)
-			exitCode = 1
+			returnedErr = fmt.Errorf("Panicked: %+v", r)
 		}
 	}()
 
 	if len(args) < 2 {
-		logger.Println("Please pass a wasm file as a parameter")
-		return 1
+		return errors.New("Please pass a wasm file as a parameter")
 	}
 
 	cpuProfile := flagSet.String("test.cpuprofile", "", "")
@@ -54,8 +56,7 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (exitCode in
 		wasmFile = strings.Replace(wasmFile, ext, ".wasm", -1)
 		err := copyFile(args[1], wasmFile)
 		if err != nil {
-			logger.Println(err)
-			return 1
+			return err
 		}
 		defer os.Remove(wasmFile)
 		args[1] = wasmFile
@@ -63,8 +64,7 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (exitCode in
 
 	passon, err := gentleParse(flagSet, args[2:])
 	if err != nil {
-		logger.Println(err)
-		return 1
+		return err
 	}
 	passon = append([]string{wasmFile}, passon...)
 	if *coverageProfile != "" {
@@ -74,25 +74,21 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (exitCode in
 	// Need to generate a random port every time for tests in parallel to run.
 	l, err := net.Listen("tcp", "localhost:")
 	if err != nil {
-		logger.Println(err)
-		return 1
+		return err
 	}
 	tcpL, ok := l.(*net.TCPListener)
 	if !ok {
-		logger.Println("net.Listen did not return a TCPListener")
-		return 1
+		return errors.New("net.Listen did not return a TCPListener")
 	}
 	_, port, err := net.SplitHostPort(tcpL.Addr().String())
 	if err != nil {
-		logger.Println(err)
-		return 1
+		return err
 	}
 
 	// Setup web server.
 	handler, err := NewWASMServer(wasmFile, passon, *coverageProfile, logger)
 	if err != nil {
-		logger.Println(err)
-		return 1
+		return err
 	}
 	httpServer := &http.Server{
 		Handler: handler,
@@ -130,6 +126,7 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (exitCode in
 		}
 		done <- struct{}{}
 	}()
+	var exitCode int
 	var coverageProfileContents string
 	tasks := []chromedp.Action{
 		chromedp.Navigate(`http://localhost:` + port),
@@ -176,11 +173,10 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (exitCode in
 	err = chromedp.Run(ctx, tasks...)
 	if err != nil {
 		// Browser did not exit cleanly. Likely failed with an uncaught error.
-		exitCode = 1
-		logger.Println(err)
+		return err
 	}
 	if exitCode != 0 {
-		exitCode = 1
+		return fmt.Errorf("exit with status %d", exitCode)
 	}
 	// create a timeout
 	ctx, cancelHTTPCtx := context.WithTimeout(ctx, 5*time.Second)
@@ -188,10 +184,10 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (exitCode in
 	// Close shop
 	err = httpServer.Shutdown(ctx)
 	if err != nil {
-		logger.Println(err)
+		return err
 	}
 	<-done
-	return exitCode
+	return nil
 }
 
 func copyFile(src, dst string) error {

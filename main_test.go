@@ -14,10 +14,10 @@ func TestRun(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		description    string
-		files          map[string]string
-		args           []string
-		expectExitCode int
+		description string
+		files       map[string]string
+		args        []string
+		expectErr   string
 	}{
 		{
 			description: "pass",
@@ -37,7 +37,6 @@ func TestFoo(t *testing.T) {
 }
 `,
 			},
-			expectExitCode: 0,
 		},
 		{
 			description: "fails",
@@ -55,7 +54,7 @@ func TestFooFails(t *testing.T) {
 }
 `,
 			},
-			expectExitCode: 1,
+			expectErr: "exit with status 1",
 		},
 		{
 			description: "panic fails",
@@ -73,7 +72,7 @@ func TestFooPanic(t *testing.T) {
 }
 `,
 			},
-			expectExitCode: 1,
+			expectErr: "exit with status 2",
 		},
 		{
 			description: "panic in goroutine fails",
@@ -91,7 +90,7 @@ func TestFooGoroutinePanic(t *testing.T) {
 }
 `,
 			},
-			expectExitCode: 1,
+			expectErr: "exit with status 1",
 		},
 		{
 			description: "panic in next run of event loop fails",
@@ -115,7 +114,7 @@ func TestFooNextEventLoopPanic(t *testing.T) {
 }
 `,
 			},
-			expectExitCode: 1,
+			expectErr: "context canceled",
 		},
 	} {
 		tc := tc // enable parallel sub-tests
@@ -126,10 +125,8 @@ func TestFooNextEventLoopPanic(t *testing.T) {
 				writeFile(t, dir, fileName, contents)
 			}
 			wasmFile := buildTestWasm(t, dir)
-			_, exitCode := testRun(t, wasmFile, tc.args...)
-			if tc.expectExitCode != exitCode {
-				t.Errorf("Test run should exit with code %d, got %d", tc.expectExitCode, exitCode)
-			}
+			_, err := testRun(t, wasmFile, tc.args...)
+			assertEqualError(t, tc.expectErr, err)
 		})
 	}
 }
@@ -148,13 +145,13 @@ func (w *testWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func testRun(t *testing.T, wasmFile string, flags ...string) ([]byte, int) {
+func testRun(t *testing.T, wasmFile string, flags ...string) ([]byte, error) {
 	var logs bytes.Buffer
 	output := io.MultiWriter(testLogger(t), &logs)
 	flagSet := flag.NewFlagSet("wasmbrowsertest", flag.ContinueOnError)
 
-	exitCode := run(append([]string{"go_js_wasm_exec", wasmFile, "-test.v"}, flags...), output, flagSet)
-	return logs.Bytes(), exitCode
+	err := run(append([]string{"go_js_wasm_exec", wasmFile, "-test.v"}, flags...), output, flagSet)
+	return logs.Bytes(), err
 }
 
 // writeFile creates a file at $baseDir/$path with the given contents, where 'path' is slash separated
@@ -190,4 +187,23 @@ func buildTestWasm(t *testing.T, path string) string {
 		t.Fatal("Failed to build Wasm binary:", err)
 	}
 	return outputFile
+}
+
+func assertEqualError(t *testing.T, expected string, err error) {
+	t.Helper()
+	if expected == "" {
+		if err != nil {
+			t.Error("Unexpected error:", err)
+		}
+		return
+	}
+
+	if err == nil {
+		t.Error("Expected error, got nil")
+		return
+	}
+	message := err.Error()
+	if expected != message {
+		t.Errorf("Unexpected error message: %q != %q", expected, message)
+	}
 }
