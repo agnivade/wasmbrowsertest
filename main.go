@@ -9,14 +9,12 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
-	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/chromedp/cdproto/inspector"
 	"github.com/chromedp/cdproto/profiler"
@@ -26,14 +24,16 @@ import (
 )
 
 func main() {
-	err := run(os.Args, os.Stderr, flag.CommandLine)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	err := run(ctx, os.Args, os.Stderr, flag.CommandLine)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (returnedErr error) {
+func run(ctx context.Context, args []string, errOutput io.Writer, flagSet *flag.FlagSet) (returnedErr error) {
 	logger := log.New(errOutput, "[wasmbrowsertest]: ", log.LstdFlags|log.Lshortfile)
 	defer func() {
 		r := recover()
@@ -71,28 +71,16 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (returnedErr
 		passon = append(passon, "-test.coverprofile="+*coverageProfile)
 	}
 
-	// Need to generate a random port every time for tests in parallel to run.
-	l, err := net.Listen("tcp", "localhost:")
-	if err != nil {
-		return err
-	}
-	tcpL, ok := l.(*net.TCPListener)
-	if !ok {
-		return errors.New("net.Listen did not return a TCPListener")
-	}
-	_, port, err := net.SplitHostPort(tcpL.Addr().String())
-	if err != nil {
-		return err
-	}
-
 	// Setup web server.
 	handler, err := NewWASMServer(wasmFile, passon, *coverageProfile, logger)
 	if err != nil {
 		return err
 	}
-	httpServer := &http.Server{
-		Handler: handler,
+	url, shutdownHTTPServer, err := startHTTPServer(ctx, handler, logger)
+	if err != nil {
+		return err
 	}
+	defer shutdownHTTPServer()
 
 	opts := chromedp.DefaultExecAllocatorOptions[:]
 	if os.Getenv("WASM_HEADLESS") == "off" {
@@ -109,7 +97,7 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (returnedErr
 	}
 
 	// create chrome instance
-	allocCtx, cancelAllocCtx := chromedp.NewExecAllocator(context.Background(), opts...)
+	allocCtx, cancelAllocCtx := chromedp.NewExecAllocator(ctx, opts...)
 	defer cancelAllocCtx()
 	ctx, cancelCtx := chromedp.NewContext(allocCtx)
 	defer cancelCtx()
@@ -118,18 +106,10 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (returnedErr
 		handleEvent(ctx, ev, logger)
 	})
 
-	done := make(chan struct{})
-	go func() {
-		err := httpServer.Serve(l)
-		if err != http.ErrServerClosed {
-			logger.Println(err)
-		}
-		done <- struct{}{}
-	}()
 	var exitCode int
 	var coverageProfileContents string
 	tasks := []chromedp.Action{
-		chromedp.Navigate(`http://localhost:` + port),
+		chromedp.Navigate(url),
 		chromedp.WaitEnabled(`#doneButton`),
 		chromedp.Evaluate(`exitCode;`, &exitCode),
 		chromedp.Evaluate(`coverageProfileContents;`, &coverageProfileContents),
@@ -178,15 +158,6 @@ func run(args []string, errOutput io.Writer, flagSet *flag.FlagSet) (returnedErr
 	if exitCode != 0 {
 		return fmt.Errorf("exit with status %d", exitCode)
 	}
-	// create a timeout
-	ctx, cancelHTTPCtx := context.WithTimeout(ctx, 5*time.Second)
-	defer cancelHTTPCtx()
-	// Close shop
-	err = httpServer.Shutdown(ctx)
-	if err != nil {
-		return err
-	}
-	<-done
 	return nil
 }
 

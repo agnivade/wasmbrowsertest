@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"io"
 	"os"
@@ -149,8 +150,10 @@ func testRun(t *testing.T, wasmFile string, flags ...string) ([]byte, error) {
 	var logs bytes.Buffer
 	output := io.MultiWriter(testLogger(t), &logs)
 	flagSet := flag.NewFlagSet("wasmbrowsertest", flag.ContinueOnError)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
 
-	err := run(append([]string{"go_js_wasm_exec", wasmFile, "-test.v"}, flags...), output, flagSet)
+	err := run(ctx, append([]string{"go_js_wasm_exec", wasmFile, "-test.v"}, flags...), output, flagSet)
 	return logs.Bytes(), err
 }
 
