@@ -10,13 +10,22 @@ import (
 	"testing"
 )
 
-func TestRunPassing(t *testing.T) {
+func TestRun(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	writeFile(t, dir, "go.mod", `
+
+	for _, tc := range []struct {
+		description    string
+		files          map[string]string
+		args           []string
+		expectExitCode int
+	}{
+		{
+			description: "pass",
+			files: map[string]string{
+				"go.mod": `
 module foo
-`)
-	writeFile(t, dir, "foo_test.go", `
+`,
+				"foo_test.go": `
 package foo
 
 import "testing"
@@ -26,68 +35,53 @@ func TestFoo(t *testing.T) {
 		t.Errorf("foo failed")
 	}
 }
-`)
-	wasmFile := buildTestWasm(t, dir)
-
-	_, exitCode := testRun(t, wasmFile, "-test.v")
-	if exitCode != 0 {
-		t.Errorf("Test run should pass, got exit code %d", exitCode)
-	}
-}
-
-func TestRunFailing(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	writeFile(t, dir, "go.mod", `
+`,
+			},
+			expectExitCode: 0,
+		},
+		{
+			description: "fails",
+			files: map[string]string{
+				"go.mod": `
 module foo
-`)
-	writeFile(t, dir, "foo_test.go", `
+`,
+				"foo_test.go": `
 package foo
 
 import "testing"
 
-func TestFoo(t *testing.T) {
+func TestFooFails(t *testing.T) {
 	t.Errorf("foo failed")
 }
-`)
-	wasmFile := buildTestWasm(t, dir)
-
-	_, exitCode := testRun(t, wasmFile)
-	if exitCode != 1 {
-		t.Errorf("Test run should fail, got exit code %d", exitCode)
-	}
-}
-
-func TestRunPanicFails(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	writeFile(t, dir, "go.mod", `
+`,
+			},
+			expectExitCode: 1,
+		},
+		{
+			description: "panic fails",
+			files: map[string]string{
+				"go.mod": `
 module foo
-`)
-	writeFile(t, dir, "foo_test.go", `
+`,
+				"foo_test.go": `
 package foo
 
 import "testing"
 
 func TestFooPanic(t *testing.T) {
-	panic("foo failed")
+	panic("failed")
 }
-`)
-	wasmFile := buildTestWasm(t, dir)
-
-	_, exitCode := testRun(t, wasmFile)
-	if exitCode != 1 {
-		t.Errorf("Test run should fail, got exit code %d", exitCode)
-	}
-}
-
-func TestRunGoroutinePanicFails(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	writeFile(t, dir, "go.mod", `
+`,
+			},
+			expectExitCode: 1,
+		},
+		{
+			description: "panic in goroutine fails",
+			files: map[string]string{
+				"go.mod": `
 module foo
-`)
-	writeFile(t, dir, "foo_test.go", `
+`,
+				"foo_test.go": `
 package foo
 
 import "testing"
@@ -95,22 +89,17 @@ import "testing"
 func TestFooGoroutinePanic(t *testing.T) {
 	go panic("foo failed")
 }
-`)
-	wasmFile := buildTestWasm(t, dir)
-
-	_, exitCode := testRun(t, wasmFile)
-	if exitCode != 1 {
-		t.Errorf("Test run should fail, got exit code %d", exitCode)
-	}
-}
-
-func TestRunNextEventLoopPanic(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	writeFile(t, dir, "go.mod", `
+`,
+			},
+			expectExitCode: 1,
+		},
+		{
+			description: "panic in next run of event loop fails",
+			files: map[string]string{
+				"go.mod": `
 module foo
-`)
-	writeFile(t, dir, "foo_test.go", `
+`,
+				"foo_test.go": `
 package foo
 
 import (
@@ -124,12 +113,24 @@ func TestFooNextEventLoopPanic(t *testing.T) {
 		return nil
 	}), 0)
 }
-`)
-	wasmFile := buildTestWasm(t, dir)
-
-	_, exitCode := testRun(t, wasmFile)
-	if exitCode != 1 {
-		t.Errorf("Test run should fail, got exit code %d", exitCode)
+`,
+			},
+			expectExitCode: 1,
+		},
+	} {
+		tc := tc // enable parallel sub-tests
+		t.Run(tc.description, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			for fileName, contents := range tc.files {
+				writeFile(t, dir, fileName, contents)
+			}
+			wasmFile := buildTestWasm(t, dir)
+			_, exitCode := testRun(t, wasmFile, tc.args...)
+			if tc.expectExitCode != exitCode {
+				t.Errorf("Test run should exit with code %d, got %d", tc.expectExitCode, exitCode)
+			}
+		})
 	}
 }
 
