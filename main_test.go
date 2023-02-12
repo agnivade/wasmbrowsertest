@@ -151,12 +151,10 @@ func (w *testWriter) Write(b []byte) (int, error) {
 func testRun(t *testing.T, wasmFile string, flags ...string) ([]byte, int) {
 	var logs bytes.Buffer
 	output := io.MultiWriter(testLogger(t), &logs)
-	exitCode := run(append([]string{"go_js_wasm_exec", wasmFile, "-test.v"}, flags...), output, testFlagSet(t))
-	return logs.Bytes(), exitCode
-}
+	flagSet := flag.NewFlagSet("wasmbrowsertest", flag.ContinueOnError)
 
-func testFlagSet(t *testing.T) *flag.FlagSet {
-	return flag.NewFlagSet("wasmbrowsertest", flag.ContinueOnError)
+	exitCode := run(append([]string{"go_js_wasm_exec", wasmFile, "-test.v"}, flags...), output, flagSet)
+	return logs.Bytes(), exitCode
 }
 
 // writeFile creates a file at $baseDir/$path with the given contents, where 'path' is slash separated
