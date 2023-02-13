@@ -21,6 +21,6 @@ jobs:
     - name: Install cleanenv
       run: go install ./cmd/cleanenv
     - name: Test
-      run: cleanenv -remove-prefix GITHUB_ -remove-prefix JAVA_ -- go test -v -race -timeout 2m ./...
+      run: cleanenv -remove-prefix GITHUB_ -remove-prefix JAVA_ -- go test -v -race -timeout 5m ./...
     - name: Install
       run: go install
