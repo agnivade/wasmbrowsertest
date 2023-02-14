@@ -4,16 +4,15 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"strings"
 )
 
 // gentleParse takes a flag.FlagSet, calls Parse to get its flags parsed,
 // and collects the arguments the FlagSet does not recognize, returning
 // the collected list.
-func gentleParse(flagset *flag.FlagSet, args []string) []string {
+func gentleParse(flagset *flag.FlagSet, args []string) ([]string, error) {
 	if len(args) == 0 {
-		return nil
+		return nil, nil
 	}
 	const prefix = "flag provided but not defined: "
 
@@ -48,7 +47,7 @@ func gentleParse(flagset *flag.FlagSet, args []string) []string {
 			fmt.Fprintf(w, "%s\n", err)
 			flagset.SetOutput(w)
 			flagset.Usage()
-			os.Exit(1)
+			return nil, err
 		}
 
 		// Check if the call to flagset.Parse ate a "--". If so, we're done
@@ -58,10 +57,10 @@ func gentleParse(flagset *flag.FlagSet, args []string) []string {
 			lastabsorbed := next[lastabsorbedpos]
 			if lastabsorbed == "--" {
 				r = append(r, "--") // return the "--" too.
-				return append(r, flagset.Args()...)
+				return append(r, flagset.Args()...), nil
 			}
 		}
 		next = flagset.Args()
 	}
-	return r
+	return r, nil
 }
