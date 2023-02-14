@@ -24,14 +24,14 @@ func TestParse(t *testing.T) {
 
 	t.Run("Other", func(t *testing.T) {
 		// Empty in, empty out, with an extra `other` variable that has a default.
-		testParseOther().Expect(t,
+		testParseOther(t).Expect(t,
 			`cpuProfile: ""`,
 			`other     : "default-other-value"`,
 			`passon    : []`,
 		)
 
 		// Test parsing of a custom flag with a custom value
-		testParseOther("-test.v", "-test.cpuprofile", "cpu1.out", "-other=another").Expect(t,
+		testParseOther(t, "-test.v", "-test.cpuprofile", "cpu1.out", "-other=another").Expect(t,
 			`cpuProfile: "cpu1.out"`,
 			`other     : "another"`,
 			`passon    : ["-test.v"]`,
@@ -199,7 +199,8 @@ func testParse(t *testing.T, args ...string) testParseGot {
 // This one acts more like an example of how to perform a different type of test.
 // It was perhaps useful in early stages of building unit tests but then seems
 // to have gone unused except for the default, empty, case.
-func testParseOther(args ...string) testParseGot {
+func testParseOther(t *testing.T, args ...string) testParseGot {
+	t.Helper()
 	var (
 		cpuProfile string
 		other      string
@@ -213,7 +214,7 @@ func testParseOther(args ...string) testParseGot {
 
 	passon, err := gentleParse(flagset, args)
 	if err != nil {
-		panic(err)
+		t.Error(err)
 	}
 
 	return makeParseGot(
