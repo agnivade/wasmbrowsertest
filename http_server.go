@@ -26,7 +26,7 @@ func startHTTPServer(ctx context.Context, handler http.Handler, logger *log.Logg
 		}
 	}()
 
-	shutdownCtx, shutdownNoWait := context.WithCancel(ctx)
+	shutdownCtx, startShutdown := context.WithCancel(ctx)
 	shutdownComplete := make(chan struct{}, 1)
 	go func() { // waits for canceled ctx or triggered shutdown, then shuts down HTTP
 		<-shutdownCtx.Done()
@@ -40,7 +40,7 @@ func startHTTPServer(ctx context.Context, handler http.Handler, logger *log.Logg
 	}()
 
 	shutdown = func() {
-		shutdownNoWait()
+		startShutdown()
 		<-shutdownComplete
 	}
 	url = (&neturl.URL{
