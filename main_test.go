@@ -23,7 +23,7 @@ func TestRun(t *testing.T) {
 				"go.mod": `
 module foo
 
-go 1.19
+go 1.20
 `,
 				"foo.go": `
 package main
@@ -41,7 +41,7 @@ func main() {
 				"go.mod": `
 		module foo
 
-		go 1.19
+		go 1.20
 		`,
 				"foo.go": `
 		package main
