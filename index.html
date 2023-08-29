@@ -30,52 +30,116 @@ license that can be found in the LICENSE file.
 		function goExit(code) {
 			exitCode = code;
 		}
-		function enosys() {
-			const err = new Error("not implemented");
-			err.code = "ENOSYS";
-			return err;
+		const securityToken = "{{.SecurityToken}}";
+		const baseFsApi = "http://" + window.location.host + "/fs/";
+		function fsHandler(name, body, onOk, onErr) {
+			const url = baseFsApi + name;
+			const options = {method: "POST",
+				body: JSON.stringify(body), headers:{"WBT-Token":securityToken}};
+			fetch(url, options).then(res => res.json()).then(payload => {
+				if (payload.error) {
+					const err = new Error(payload.error);
+					err.code = payload.code;
+					onErr(err);
+				} else {
+					onOk(payload);
+				}
+			}).catch(() => {
+				const err = new Error("bad server response");
+				err.code = "ENOSYS";
+				onErr(err);
+			})
 		}
-		let coverageProfileContents = "";
-		function overrideFS(fs) {
-			// A typical runtime opens fd's in sequence above the standard descriptors (0-2).
-			// Choose an arbitrarily high fd for the custom coverage file to avoid conflict with the actual runtime fd's.
-			const coverFileDescriptor = Number.MAX_SAFE_INTEGER; 
-			const coverFilePath = {{.CoverageFile}};
-			// Wraps the default operations with bind() to ensure internal usage of 'this' continues to work.
-			const defaultOpen = fs.open.bind(fs);
-			fs.open = (path, flags, mode, callback) => {
-				if (path === coverFilePath) {
-					callback(null, coverFileDescriptor);
-					return;
-				}
-				defaultOpen(path, flags, mode, callback);
-			};
-			const defaultClose = fs.close.bind(fs);
-			fs.close = (fd, callback) => {
-				if (fd === coverFileDescriptor) {
-					callback(null);
-					return;
-				}
-				defaultClose(fd, callback);
-			};
-			if (!globalThis.TextDecoder) {
-				throw new Error("globalThis.TextDecoder is not available, polyfill required");
+		function bufferToBase64(buf) {
+			let binaryString = "";
+			let bytes = new Uint8Array(buf);
+			const len = bytes.length;
+			for (let i = 0; i < len; i++) {
+				binaryString += String.fromCharCode(bytes[i]);
 			}
-			const decoder = new TextDecoder("utf-8");
+			return btoa(binaryString);
+		}
+		function overrideProcess(process) {
+			// provide non-negative pid so counter file regex matches
+			// https://github.com/golang/go/blob/9a49b26bdf771ecdfa2d3bc3ee5175eed5321f20/src/internal/coverage/defs.go#L327
+			process.pid = {{.Pid}};
+			process.ppid = {{.Ppid}};
+			process.cwd = () => {
+				return "/fs";
+			};
+		}
+		function fsp(path) {
+			return "/fs/"+path
+		}
+		function overrideFS(fs) {
+			// The fs.constants are read at syscall/fs_js.go:25.
+			// These values are pulled from syscall/syscall_js.go.
+			fs.constants = { O_WRONLY: 1, O_RDWR: 2,
+				O_CREAT: 0o0100, O_TRUNC: 0o01000, O_APPEND: 0o02000, O_EXCL: 0o0200 };
+			fs.open = (path, flags, mode, callback) => {
+				fsHandler("open", {path:fsp(path),flags,mode}, (resp) => callback(null, resp.fd), callback);
+			};
+			fs.close = (fd, callback) => {
+				fsHandler("close", {fd}, () => callback(null), callback);
+			};
 			const defaultWrite = fs.write.bind(fs);
 			fs.write = (fd, buf, offset, length, position, callback) => {
-				if (fd === coverFileDescriptor) {
-					coverageProfileContents += decoder.decode(buf);
-					callback(null, buf.length);
+				// stdin=0, stdout=1, stderr=2
+				if (fd < 3) {
+					defaultWrite(fd, buf, offset, length, position, callback);
 					return;
 				}
-				defaultWrite(fd, buf, offset, length, position, callback);
+				const buffer = bufferToBase64(buf)
+				fsHandler("write", {fd, buffer, offset, length, position}, (resp) => {
+					callback(null, resp.written);
+				}, callback);
 			};
+			fs.stat = (path, callback) => {
+				fsHandler("stat", {path:fsp(path)}, (resp) => callback(null, resp), callback);
+			}
+			fs.fstat = (fd, callback) => {
+				fsHandler("fstat", {fd}, (resp) => {
+					// for https://github.com/golang/go/blob/c19c4c566c63818dfd059b352e52c4710eecf14d/src/syscall/fs_js.go#L93
+					resp.isDirectory = () => {
+						return (resp.mode & (1 << 14)) > 0
+					}
+					callback(null, resp);
+				}, callback);
+			}
+			fs.rename = (from, to, callback) => {
+				fsHandler("rename", {from:fsp(from),to:fsp(to)}, () => callback(null), callback);
+			}
+			fs.readdir = (path, callback) => {
+				fsHandler("readdir", {path:fsp(path)}, (resp) => callback(null, resp.entries), callback);
+			}
+			fs.lstat = (path, callback) => {
+				fsHandler("lstat", {path:fsp(path)}, (resp) => callback(null, resp), callback);
+			}
+			fs.read = (fd, buffer, offset, length, position, callback) => {
+				fsHandler("read", {fd,offset,length,position}, (resp) => {
+					const binaryString = atob(resp.buffer);
+					for (let i = 0; i < binaryString.length; i++) {
+						buffer[i] = binaryString.charCodeAt(i);
+					}
+					callback(null, resp.read);
+				}, callback);
+			}
+			fs.mkdir = (path, perm, callback) => {
+				fsHandler("mkdir", {path:fsp(path), perm}, () => callback(null), callback);
+			}
+			fs.unlink = (path, callback) => {
+				fsHandler("unlink", {path:fsp(path)}, () => callback(null), callback);
+			}
+			fs.rmdir = (path, callback) => {
+				fsHandler("rmdir", {path:fsp(path)}, () => callback(null), callback);
+			}
+
 		}
 
 		(async() => {
 			const go = new Go();
-			overrideFS(globalThis.fs)
+			overrideFS(globalThis.fs);
+			overrideProcess(globalThis.process);
 			go.argv = [{{range $i, $item := .Args}} {{if $i}}, {{end}} "{{$item}}" {{end}}];
 			// The notFirst variable sets itself to true after first iteration. This is to put commas in between.
 			go.env = { {{ $notFirst := false }}
