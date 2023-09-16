@@ -354,7 +354,7 @@ func Helper(t *testing.T) *helperApi {
 type helperApi struct {
 	t       *testing.T
 	m       *sync.Mutex
-	handler *FsHandler
+	handler *Handler
 	tmpDir  string
 }
 

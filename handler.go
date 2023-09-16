@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	_ "embed"
 	"encoding/base64"
-	"github.com/agnivade/wasmbrowsertest/filesys"
 	"html/template"
 	"io"
 	"log"
@@ -16,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/agnivade/wasmbrowsertest/filesys"
 )
 
 //go:embed index.html
@@ -28,7 +29,7 @@ type wasmServer struct {
 	args          []string
 	envMap        map[string]string
 	logger        *log.Logger
-	fsHandler     *filesys.FsHandler
+	fsHandler     *filesys.Handler
 	securityToken string
 }
 

@@ -142,12 +142,6 @@ func run(ctx context.Context, args []string, errOutput io.Writer, flagSet *flag.
 			return WriteProfile(profile, outF, funcMap)
 		}))
 	}
-	if os.Getenv("GOCOVERDIR") != "" {
-		tasks = append(tasks, chromedp.ActionFunc(func(ctx context.Context) error {
-			// TODO: maybe future covmeta, covcounter file copies
-			return nil
-		}))
-	}
 
 	err = chromedp.Run(ctx, tasks...)
 	if err != nil {

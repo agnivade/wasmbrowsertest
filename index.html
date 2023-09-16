@@ -31,9 +31,9 @@ license that can be found in the LICENSE file.
 			exitCode = code;
 		}
 		const securityToken = "{{.SecurityToken}}";
-		const baseFsApi = "http://" + window.location.host + "/fs/";
+		const fsApi = "/fs/";
 		function fsHandler(name, body, onOk, onErr) {
-			const url = baseFsApi + name;
+			const url = fsApi + name;
 			const options = {method: "POST",
 				body: JSON.stringify(body), headers:{"WBT-Token":securityToken}};
 			fetch(url, options).then(res => res.json()).then(payload => {
@@ -44,7 +44,8 @@ license that can be found in the LICENSE file.
 				} else {
 					onOk(payload);
 				}
-			}).catch(() => {
+			}).catch((fetchError) => {
+				console.log("fetch error", fetchError)
 				const err = new Error("bad server response");
 				err.code = "ENOSYS";
 				onErr(err);
@@ -64,16 +65,17 @@ license that can be found in the LICENSE file.
 			// https://github.com/golang/go/blob/9a49b26bdf771ecdfa2d3bc3ee5175eed5321f20/src/internal/coverage/defs.go#L327
 			process.pid = {{.Pid}};
 			process.ppid = {{.Ppid}};
-			process.cwd = () => {
-				return "/fs";
-			};
+			process.cwd = () => { return fsApi };
 		}
+		// Prepending /fs/ prevents jsProcess.Call("cwd") for windows drive letter paths.
+		// https://github.com/golang/go/blob/5a9b6432ec8b9199ce9fce9387e94195138b313f/src/syscall/fs_js.go#L104
+		// This prefix is removed by filesys/handler.go fixPath() in each api call.
 		function fsp(path) {
-			return "/fs/"+path
+			return fsApi + path
 		}
 		function overrideFS(fs) {
-			// The fs.constants are read at syscall/fs_js.go:25.
-			// These values are pulled from syscall/syscall_js.go.
+			// The fs.constants are read at https://github.com/golang/go/blob/561a5079057e3a660ab638e1ba957a96c4ff3fd1/src/syscall/fs_js.go#L25
+			// These values are pulled from https://github.com/golang/go/blob/561a5079057e3a660ab638e1ba957a96c4ff3fd1/src/syscall/syscall_js.go#L126
 			fs.constants = { O_WRONLY: 1, O_RDWR: 2,
 				O_CREAT: 0o0100, O_TRUNC: 0o01000, O_APPEND: 0o02000, O_EXCL: 0o0200 };
 			fs.open = (path, flags, mode, callback) => {

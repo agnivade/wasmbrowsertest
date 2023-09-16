@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-func (st *Stat) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (st *Stat) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	stat, err := os.Stat(fixPath(st.Path))
 	if fa.handleError(w, err, true) {
 		return
@@ -17,7 +17,7 @@ func (st *Stat) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
 	fa.okResponse(mapOfFileInfo(stat), w)
 }
 
-func (f *Fstat) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (f *Fstat) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	fileInfo := &syscall.ByHandleFileInformation{}
 	err := syscall.GetFileInformationByHandle(FdType(f.Fd), fileInfo)
 	if fa.handleError(w, err, true) {
@@ -26,7 +26,7 @@ func (f *Fstat) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
 	fa.okResponse(mapOfByHandleFileInformation(fileInfo), w)
 }
 
-func (ls *Lstat) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (ls *Lstat) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	stat, err := os.Stat(fixPath(ls.Path))
 	if fa.handleError(w, err, true) {
 		return

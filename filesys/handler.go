@@ -10,22 +10,22 @@ import (
 	"syscall"
 )
 
-// FsHandler translates json payload data to and from system calls like syscall.Stat
-type FsHandler struct {
+// Handler translates json payload data to and from system calls like syscall.Stat
+type Handler struct {
 	debug         bool
 	securityToken string
 	logger        *log.Logger
 }
 
-func NewHandler(securityToken string, logger *log.Logger) *FsHandler {
-	return &FsHandler{
-		debug:         os.Getenv("DEBUG_FS_HANDLER") != "",
+func NewHandler(securityToken string, logger *log.Logger) *Handler {
+	return &Handler{
+		debug:         false,
 		securityToken: securityToken,
 		logger:        logger,
 	}
 }
 
-func (fa *FsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (fa *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("WBT-Token") != fa.securityToken {
 		fa.doError("not implemented", "ENOSYS", w)
 		return
@@ -61,14 +61,12 @@ func (fa *FsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type Responder interface {
-	WriteResponse(fa *FsHandler, w http.ResponseWriter)
+	WriteResponse(fa *Handler, w http.ResponseWriter)
 }
 
-func (fa *FsHandler) handle(responder Responder, w http.ResponseWriter, r *http.Request) {
+func (fa *Handler) handle(responder Responder, w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(responder); err != nil {
-		if fa.debug {
-			fa.logger.Printf("ERROR handle : %s\n", err)
-		}
+		fa.logger.Printf("ERROR handle : %s\n", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -83,7 +81,7 @@ type ErrorCode struct {
 	Code  string `json:"code"`
 }
 
-func (fa *FsHandler) doError(msg, code string, w http.ResponseWriter) {
+func (fa *Handler) doError(msg, code string, w http.ResponseWriter) {
 	if fa.debug {
 		fa.logger.Printf("doError %s : %s\n", msg, code)
 	}
@@ -96,7 +94,7 @@ func (fa *FsHandler) doError(msg, code string, w http.ResponseWriter) {
 	}
 }
 
-func (fa *FsHandler) okResponse(data any, w http.ResponseWriter) {
+func (fa *Handler) okResponse(data any, w http.ResponseWriter) {
 	if marshal, err := json.Marshal(data); err != nil {
 		fa.logger.Println("okResponse json error:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -125,7 +123,7 @@ type Open struct {
 	Mode  uint32 `json:"mode"`
 }
 
-func (o *Open) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (o *Open) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	fd, err := syscall.Open(fixPath(o.Path), o.Flags, o.Mode)
 	if fa.handleError(w, err, true) {
 		return
@@ -146,7 +144,7 @@ type Write struct {
 	Position *int   `json:"position,omitempty"`
 }
 
-func (wr *Write) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (wr *Write) WriteResponse(fa *Handler, w http.ResponseWriter) {
 
 	if wr.Position != nil || wr.Offset != 0 {
 		fa.doError("not implemented", "ENOSYS", w)
@@ -173,7 +171,7 @@ type Close struct {
 	Fd int `json:"fd"`
 }
 
-func (c *Close) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (c *Close) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	err := syscall.Close(FdType(c.Fd))
 	if err != nil {
 		fa.doError(syscall.ENOSYS.Error(), "ENOSYS", w)
@@ -187,7 +185,7 @@ type Rename struct {
 	To   string `json:"to"`
 }
 
-func (r *Rename) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (r *Rename) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	err := syscall.Rename(fixPath(r.From), fixPath(r.To))
 	if fa.handleError(w, err, true) {
 		return
@@ -199,7 +197,7 @@ type Readdir struct {
 	Path string `json:"path"`
 }
 
-func (r *Readdir) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (r *Readdir) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	entries, err := os.ReadDir(fixPath(r.Path))
 	if err != nil {
 		fa.doError(syscall.ENOSYS.Error(), "ENOSYS", w)
@@ -223,7 +221,7 @@ type Read struct {
 	Position *int `json:"position,omitempty"`
 }
 
-func (r *Read) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (r *Read) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	if r.Offset != 0 {
 		fa.doError("not implemented", "ENOSYS", w)
 		return
@@ -255,7 +253,7 @@ type Mkdir struct {
 	Perm uint32 `json:"perm"`
 }
 
-func (m *Mkdir) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (m *Mkdir) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	err := syscall.Mkdir(fixPath(m.Path), m.Perm)
 	if err != nil {
 		fa.doError("not implemented", "ENOSYS", w)
@@ -268,7 +266,7 @@ type Unlink struct {
 	Path string `json:"path"`
 }
 
-func (u *Unlink) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (u *Unlink) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	err := syscall.Unlink(fixPath(u.Path))
 	if err != nil {
 		fa.doError("not implemented", "ENOSYS", w)
@@ -281,7 +279,7 @@ type Rmdir struct {
 	Path string `json:"path"`
 }
 
-func (r *Rmdir) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (r *Rmdir) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	err := syscall.Rmdir(fixPath(r.Path))
 	if fa.handleError(w, err, true) {
 		return
@@ -289,7 +287,7 @@ func (r *Rmdir) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
 	fa.okResponse(map[string]any{}, w)
 }
 
-func (fa *FsHandler) handleError(w http.ResponseWriter, err error, noEnt bool) bool {
+func (fa *Handler) handleError(w http.ResponseWriter, err error, noEnt bool) bool {
 	if err == nil {
 		return false
 	}

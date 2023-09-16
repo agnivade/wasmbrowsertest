@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-func (st *Stat) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (st *Stat) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	s := &syscall.Stat_t{}
 	err := syscall.Stat(fixPath(st.Path), s)
 	if fa.handleError(w, err, true) {
@@ -16,7 +16,7 @@ func (st *Stat) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
 	fa.okResponse(mapOfStatT(s), w)
 }
 
-func (f *Fstat) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (f *Fstat) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	s := &syscall.Stat_t{}
 	err := syscall.Fstat(f.Fd, s)
 	if fa.handleError(w, err, false) {
@@ -25,7 +25,7 @@ func (f *Fstat) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
 	fa.okResponse(mapOfStatT(s), w)
 }
 
-func (ls *Lstat) WriteResponse(fa *FsHandler, w http.ResponseWriter) {
+func (ls *Lstat) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	s := &syscall.Stat_t{}
 	err := syscall.Lstat(fixPath(ls.Path), s)
 	if fa.handleError(w, err, true) {
