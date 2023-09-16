@@ -31,9 +31,9 @@ license that can be found in the LICENSE file.
 			exitCode = code;
 		}
 		const securityToken = "{{.SecurityToken}}";
-		const fsApi = "/fs/";
+		const fsPath = "/fs";
 		function fsHandler(name, body, onOk, onErr) {
-			const url = fsApi + name;
+			const url = fsPath + "/" + name;
 			const options = {method: "POST",
 				body: JSON.stringify(body), headers:{"WBT-Token":securityToken}};
 			fetch(url, options).then(res => res.json()).then(payload => {
@@ -65,13 +65,13 @@ license that can be found in the LICENSE file.
 			// https://github.com/golang/go/blob/9a49b26bdf771ecdfa2d3bc3ee5175eed5321f20/src/internal/coverage/defs.go#L327
 			process.pid = {{.Pid}};
 			process.ppid = {{.Ppid}};
-			process.cwd = () => { return fsApi };
+			process.cwd = () => { return fsPath };
 		}
 		// Prepending /fs/ prevents jsProcess.Call("cwd") for windows drive letter paths.
 		// https://github.com/golang/go/blob/5a9b6432ec8b9199ce9fce9387e94195138b313f/src/syscall/fs_js.go#L104
 		// This prefix is removed by filesys/handler.go fixPath() in each api call.
 		function fsp(path) {
-			return fsApi + path
+			return fsPath + "/" + path
 		}
 		function overrideFS(fs) {
 			// The fs.constants are read at https://github.com/golang/go/blob/561a5079057e3a660ab638e1ba957a96c4ff3fd1/src/syscall/fs_js.go#L25
