@@ -189,9 +189,7 @@ func TestWrite_bad(t *testing.T) {
 	help.httpOk(help.req("open", payload, &openMap))
 	defer help.deferCloseFd(openMap)
 
-	//// failing test cases
-	//var pos = 5
-	//help.httpBad(help.req("write", &Write{Position: &pos}, &ErrorCode{}))
+	// failing test cases
 	help.httpBad(help.req("write", &Write{Offset: 1}, &ErrorCode{}))
 	help.httpBad(help.req("write", &Write{Buffer: "%%%"}, &ErrorCode{}))
 	help.httpBad(help.req("write", &Write{Buffer: ""}, &ErrorCode{}))
@@ -326,7 +324,7 @@ func TestServeDefault(t *testing.T) {
 func Test_doError(t *testing.T) {
 	help := Helper(t)
 	w := &BrokenResponseRecorder{}
-	help.handler.doError("msg", "code", w)
+	help.handler.doError("msg", "code", w, nil)
 }
 
 func Test_okResponse(t *testing.T) {
