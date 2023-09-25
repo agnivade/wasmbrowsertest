@@ -3,6 +3,8 @@ package filesys
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -27,7 +29,7 @@ func NewHandler(securityToken string, logger *log.Logger) *Handler {
 
 func (fa *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("WBT-Token") != fa.securityToken {
-		fa.doError("not implemented", "ENOSYS", w)
+		fa.doError("not implemented", "ENOSYS", w, errors.New("missing WBT-token"))
 		return
 	}
 	switch r.URL.Path {
@@ -56,7 +58,8 @@ func (fa *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/fs/rmdir":
 		fa.handle(&Rmdir{}, w, r)
 	default:
-		fa.doError("not implemented", "ENOSYS", w)
+		fa.doError("not implemented", "ENOSYS", w,
+			fmt.Errorf("unsupported api path %q", r.URL.Path))
 	}
 }
 
@@ -66,7 +69,7 @@ type Responder interface {
 
 func (fa *Handler) handle(responder Responder, w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(responder); err != nil {
-		fa.logger.Printf("ERROR handle : %s\n", err)
+		fa.logger.Printf("ERROR handle : %v\n", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -81,31 +84,39 @@ type ErrorCode struct {
 	Code  string `json:"code"`
 }
 
-func (fa *Handler) doError(msg, code string, w http.ResponseWriter) {
+func (fa *Handler) doError(msg, code string, w http.ResponseWriter, err error) {
 	if fa.debug {
 		fa.logger.Printf("doError %s : %s\n", msg, code)
 	}
+	if err != nil {
+		fa.logger.Printf("Error: %v", err)
+	}
+
 	e := &ErrorCode{Error: msg, Code: code}
 
 	w.WriteHeader(http.StatusBadRequest)
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(e); err != nil {
-		fa.logger.Println("doError json error :", err)
+		fa.logger.Printf("Error encoding json: %v", err)
 	}
 }
 
 func (fa *Handler) okResponse(data any, w http.ResponseWriter) {
-	if marshal, err := json.Marshal(data); err != nil {
+	var marshal []byte
+	var err error
+	if marshal, err = json.Marshal(data); err != nil {
 		fa.logger.Println("okResponse json error:", err)
 		w.WriteHeader(http.StatusInternalServerError)
-	} else {
-		if fa.debug {
-			fa.logger.Printf("okResponse %s\n", string(marshal))
-		}
+		return
+	}
+	if fa.debug {
+		fa.logger.Printf("okResponse %s\n", string(marshal))
+	}
 
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(marshal)
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	if _, err = w.Write(marshal); err != nil {
+		fa.logger.Printf("Error writing json: %v", err)
 	}
 }
 
@@ -145,22 +156,29 @@ type Write struct {
 }
 
 func (wr *Write) WriteResponse(fa *Handler, w http.ResponseWriter) {
-
-	if wr.Position != nil || wr.Offset != 0 {
-		fa.doError("not implemented", "ENOSYS", w)
+	if wr.Offset != 0 {
+		fa.doError("not implemented", "ENOSYS", w,
+			fmt.Errorf("write offset %d not supported", wr.Offset))
 		return
+	}
+	if wr.Position != nil {
+		_, err := syscall.Seek(FdType(wr.Fd), int64(*wr.Position), 0)
+		if err != nil {
+			fa.doError("not implemented", "ENOSYS", w, err)
+			return
+		}
 	}
 
 	bytes, err := base64.StdEncoding.DecodeString(wr.Buffer)
 	if err != nil {
-		fa.doError("not implemented", "ENOSYS", w)
+		fa.doError("not implemented", "ENOSYS", w, err)
 		return
 	}
 
 	var written int
 	written, err = syscall.Write(FdType(wr.Fd), bytes)
 	if err != nil {
-		fa.doError("not implemented", "ENOSYS", w)
+		fa.doError("not implemented", "ENOSYS", w, err)
 		return
 	}
 
@@ -173,8 +191,7 @@ type Close struct {
 
 func (c *Close) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	err := syscall.Close(FdType(c.Fd))
-	if err != nil {
-		fa.doError(syscall.ENOSYS.Error(), "ENOSYS", w)
+	if fa.handleError(w, err, false) {
 		return
 	}
 	fa.okResponse(map[string]any{}, w)
@@ -199,13 +216,12 @@ type Readdir struct {
 
 func (r *Readdir) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	entries, err := os.ReadDir(fixPath(r.Path))
-	if err != nil {
-		fa.doError(syscall.ENOSYS.Error(), "ENOSYS", w)
+	if fa.handleError(w, err, false) {
 		return
 	}
-	stringNames := make([]string, 0)
-	for _, entry := range entries {
-		stringNames = append(stringNames, entry.Name())
+	stringNames := make([]string, len(entries))
+	for i, entry := range entries {
+		stringNames[i] = entry.Name()
 	}
 	fa.okResponse(map[string]any{"entries": stringNames}, w)
 }
@@ -223,13 +239,14 @@ type Read struct {
 
 func (r *Read) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	if r.Offset != 0 {
-		fa.doError("not implemented", "ENOSYS", w)
+		fa.doError("not implemented", "ENOSYS", w,
+			fmt.Errorf("read offset %d not supported", r.Offset))
 		return
 	}
 	if r.Position != nil {
 		_, err := syscall.Seek(FdType(r.Fd), int64(*r.Position), 0)
 		if err != nil {
-			fa.doError("not implemented", "ENOSYS", w)
+			fa.doError("not implemented", "ENOSYS", w, err)
 			return
 		}
 	}
@@ -237,7 +254,7 @@ func (r *Read) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	buffer := make([]byte, r.Length)
 	read, err := syscall.Read(FdType(r.Fd), buffer)
 	if err != nil {
-		fa.doError("not implemented", "ENOSYS", w)
+		fa.doError("not implemented", "ENOSYS", w, err)
 		return
 	}
 	response := map[string]any{
@@ -256,7 +273,7 @@ type Mkdir struct {
 func (m *Mkdir) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	err := syscall.Mkdir(fixPath(m.Path), m.Perm)
 	if err != nil {
-		fa.doError("not implemented", "ENOSYS", w)
+		fa.doError("not implemented", "ENOSYS", w, err)
 		return
 	}
 	fa.okResponse(map[string]any{}, w)
@@ -269,7 +286,7 @@ type Unlink struct {
 func (u *Unlink) WriteResponse(fa *Handler, w http.ResponseWriter) {
 	err := syscall.Unlink(fixPath(u.Path))
 	if err != nil {
-		fa.doError("not implemented", "ENOSYS", w)
+		fa.doError("not implemented", "ENOSYS", w, err)
 		return
 	}
 	fa.okResponse(map[string]any{}, w)
@@ -292,9 +309,11 @@ func (fa *Handler) handleError(w http.ResponseWriter, err error, noEnt bool) boo
 		return false
 	}
 	if noEnt && os.IsNotExist(err) {
-		fa.doError(syscall.ENOENT.Error(), "ENOENT", w)
+		// We're not passing the error down for logging here since this is a
+		// file not found condition, not an actual error condition.
+		fa.doError(syscall.ENOENT.Error(), "ENOENT", w, nil)
 	} else {
-		fa.doError(syscall.ENOSYS.Error(), "ENOSYS", w)
+		fa.doError(syscall.ENOSYS.Error(), "ENOSYS", w, err)
 	}
 	return true
 }

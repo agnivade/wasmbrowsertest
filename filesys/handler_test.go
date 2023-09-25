@@ -154,6 +154,32 @@ func TestWrite(t *testing.T) {
 	help.true(int(written) == len(contents), "incorrect written length")
 }
 
+func TestWrite_with_position(t *testing.T) {
+	help := Helper(t)
+	writtenFile := help.createFile("writeSeek.txt", "1234567890")
+	openMap := help.newMap()
+	payload := &Open{Path: writtenFile, Flags: os.O_RDWR, Mode: 0777}
+
+	help.httpOk(help.req("open", payload, &openMap))
+
+	contents := "ZZZ"
+	buffer := base64.StdEncoding.EncodeToString([]byte(contents))
+	w := map[string]any{"fd": openMap["fd"], "position": 5, "buffer": buffer, "length": len(contents)}
+
+	writeResult := help.newMap()
+	help.httpOk(help.req("write", w, &writeResult))
+
+	written, ok := writeResult["written"].(float64)
+	help.true(ok, "written value in return missing")
+	help.true(int(written) == len(contents), "incorrect written length")
+
+	help.httpOk(help.req("close", openMap, &ErrorCode{}))
+
+	file, err := os.ReadFile(writtenFile)
+	help.nilErr(err)
+	help.true("12345ZZZ90" == string(file), fmt.Sprintf("expected 12345ZZZ90 but got %q", string(file)))
+}
+
 func TestWrite_bad(t *testing.T) {
 	help := Helper(t)
 	writtenFile := help.tempPath("written.txt")
@@ -163,9 +189,9 @@ func TestWrite_bad(t *testing.T) {
 	help.httpOk(help.req("open", payload, &openMap))
 	defer help.deferCloseFd(openMap)
 
-	// failing test cases
-	var pos = 5
-	help.httpBad(help.req("write", &Write{Position: &pos}, &ErrorCode{}))
+	//// failing test cases
+	//var pos = 5
+	//help.httpBad(help.req("write", &Write{Position: &pos}, &ErrorCode{}))
 	help.httpBad(help.req("write", &Write{Offset: 1}, &ErrorCode{}))
 	help.httpBad(help.req("write", &Write{Buffer: "%%%"}, &ErrorCode{}))
 	help.httpBad(help.req("write", &Write{Buffer: ""}, &ErrorCode{}))
