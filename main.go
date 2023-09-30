@@ -107,12 +107,10 @@ func run(ctx context.Context, args []string, errOutput io.Writer, flagSet *flag.
 	})
 
 	var exitCode int
-	var coverageProfileContents string
 	tasks := []chromedp.Action{
 		chromedp.Navigate(url),
 		chromedp.WaitEnabled(`#doneButton`),
 		chromedp.Evaluate(`exitCode;`, &exitCode),
-		chromedp.Evaluate(`coverageProfileContents;`, &coverageProfileContents),
 	}
 	if *cpuProfile != "" {
 		// Prepend and append profiling tasks
@@ -142,11 +140,6 @@ func run(ctx context.Context, args []string, errOutput io.Writer, flagSet *flag.
 			}
 
 			return WriteProfile(profile, outF, funcMap)
-		}))
-	}
-	if *coverageProfile != "" {
-		tasks = append(tasks, chromedp.ActionFunc(func(ctx context.Context) error {
-			return os.WriteFile(*coverageProfile, []byte(coverageProfileContents), 0644)
 		}))
 	}
 

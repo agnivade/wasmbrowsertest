@@ -1,9 +1,11 @@
 package main
 
 import (
+	"crypto/rand"
 	_ "embed"
+	"encoding/base64"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -13,37 +15,47 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/agnivade/wasmbrowsertest/filesys"
 )
 
 //go:embed index.html
 var indexHTML string
 
 type wasmServer struct {
-	indexTmpl    *template.Template
-	wasmFile     string
-	wasmExecJS   []byte
-	args         []string
-	coverageFile string
-	envMap       map[string]string
-	logger       *log.Logger
+	indexTmpl     *template.Template
+	wasmFile      string
+	wasmExecJS    []byte
+	args          []string
+	envMap        map[string]string
+	logger        *log.Logger
+	fsHandler     *filesys.Handler
+	securityToken string
 }
 
 func NewWASMServer(wasmFile string, args []string, coverageFile string, l *log.Logger) (http.Handler, error) {
 	var err error
 	srv := &wasmServer{
-		wasmFile:     wasmFile,
-		args:         args,
-		coverageFile: coverageFile,
-		logger:       l,
-		envMap:       make(map[string]string),
+		wasmFile: wasmFile,
+		args:     args,
+		logger:   l,
+		envMap:   make(map[string]string),
 	}
+
+	// try for some security on an api capable of
+	// reads and writes to the file system
+	srv.securityToken, err = generateToken()
+	if err != nil {
+		return nil, err
+	}
+	srv.fsHandler = filesys.NewHandler(srv.securityToken, l)
 
 	for _, env := range os.Environ() {
 		vars := strings.SplitN(env, "=", 2)
 		srv.envMap[vars[0]] = vars[1]
 	}
 
-	buf, err := ioutil.ReadFile(path.Join(runtime.GOROOT(), "misc/wasm/wasm_exec.js"))
+	buf, err := os.ReadFile(path.Join(runtime.GOROOT(), "misc/wasm/wasm_exec.js"))
 	if err != nil {
 		return nil, err
 	}
@@ -62,15 +74,19 @@ func (ws *wasmServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/", "/index.html":
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		data := struct {
-			WASMFile     string
-			Args         []string
-			CoverageFile string
-			EnvMap       map[string]string
+			WASMFile      string
+			Args          []string
+			EnvMap        map[string]string
+			SecurityToken string
+			Pid           int
+			Ppid          int
 		}{
-			WASMFile:     filepath.Base(ws.wasmFile),
-			Args:         ws.args,
-			CoverageFile: ws.coverageFile,
-			EnvMap:       ws.envMap,
+			WASMFile:      filepath.Base(ws.wasmFile),
+			Args:          ws.args,
+			EnvMap:        ws.envMap,
+			SecurityToken: ws.securityToken,
+			Pid:           os.Getpid(),
+			Ppid:          os.Getppid(),
 		}
 		err := ws.indexTmpl.Execute(w, data)
 		if err != nil {
@@ -95,5 +111,17 @@ func (ws *wasmServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if _, err := w.Write(ws.wasmExecJS); err != nil {
 			ws.logger.Println("unable to write wasm_exec.")
 		}
+	default:
+		if strings.HasPrefix(r.URL.Path, "/fs/") {
+			ws.fsHandler.ServeHTTP(w, r)
+		}
 	}
+}
+
+func generateToken() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(buf), nil
 }
