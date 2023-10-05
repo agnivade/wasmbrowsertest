@@ -114,6 +114,21 @@ This tool uses the [ChromeDP](https://chromedevtools.github.io/devtools-protocol
 
 Great question. The initial idea was to use a Selenium API and drive any browser to run the tests. But unfortunately, geckodriver does not support the ability to capture console logs - https://github.com/mozilla/geckodriver/issues/284. Hence, the shift to use the ChromeDP protocol circumvents the need to have any external driver binary and just have a browser installed in the machine.
 
+### A tip on coverage data using go 1.20 or later:
+
+Code coverage changes introduced in go 1.20 produce multiple 
+[coverage data files](https://go.dev/testing/coverage/#working) in binary format.
+
+In wasmbrowsertest, file system operations for coverage files occur via http api calls.
+  
+Prefer using `-test.gocoverdir=/path/to/coverage` instead of `-test.coverprofile=coverage.out` 
+when coverage data is needed. This will prevent http api calls that would read all the coverage data 
+files and write the larger `coverage.out` file. 
+
+In a subsequent step, use `go tool covdata -i /path/to/coverage -o coverage.out` or similar to process coverage 
+data files into the desired output format. An additional benefit is that multiple test coverage runs that write 
+their data to the same coverage directory can be merged together with this command.
+
 ## Errors
 
 ### `total length of command line and environment variables exceeds limit`
