@@ -119,7 +119,7 @@ Great question. The initial idea was to use a Selenium API and drive any browser
 Code coverage changes introduced in go 1.20 produce multiple 
 [coverage data files](https://go.dev/testing/coverage/#working) in binary format.
 
-In wasmbrowsertest, file system operations for coverage files occur via http api calls.
+In wasmbrowsertest, file system operations for coverage files occur via HTTP API calls.
   
 Prefer using `-test.gocoverdir=/path/to/coverage` instead of `-test.coverprofile=coverage.out` 
 when coverage data is needed. This will prevent http api calls that would read all the coverage data 
