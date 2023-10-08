@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 )
 
@@ -20,7 +20,7 @@ func gentleParse(flagset *flag.FlagSet, args []string) ([]string, error) {
 
 	flagset.Init(flagset.Name(), flag.ContinueOnError)
 	w := flagset.Output()
-	flagset.SetOutput(ioutil.Discard)
+	flagset.SetOutput(io.Discard)
 
 	// Put back the flagset's output, the flagset's Usage might be called later.
 	defer flagset.SetOutput(w)

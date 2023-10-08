@@ -3,14 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/chromedp/cdproto/profiler"
 )
 
 func TestWriteProfile(t *testing.T) {
-	buf, err := ioutil.ReadFile("testdata/wasm.prof")
+	buf, err := os.ReadFile("testdata/wasm.prof")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func TestWriteProfile(t *testing.T) {
 		t.Error(err)
 	}
 
-	golden, err := ioutil.ReadFile("testdata/pprof.out")
+	golden, err := os.ReadFile("testdata/pprof.out")
 	if err != nil {
 		t.Error(err)
 	}
