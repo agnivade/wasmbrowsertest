@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -224,7 +223,7 @@ func handleEvent(ctx context.Context, ev interface{}, logger *log.Logger) {
 // This method of checking for WSL has worked since mid 2016:
 // https://github.com/microsoft/WSL/issues/423#issuecomment-328526847
 func isWSL() bool {
-	buf, err := ioutil.ReadFile("/proc/sys/kernel/osrelease")
+	buf, err := os.ReadFile("/proc/sys/kernel/osrelease")
 	if err != nil {
 		return false
 	}
