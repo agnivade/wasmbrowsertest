@@ -1,6 +1,6 @@
 module github.com/agnivade/wasmbrowsertest
 
-go 1.20
+go 1.21
 
 require (
 	github.com/chromedp/cdproto v0.0.0-20240426225625-909263490071
