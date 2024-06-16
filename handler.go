@@ -70,7 +70,7 @@ func NewWASMServer(wasmFile string, args []string, coverageFile string, l *log.L
 			return nil, err
 		}
 
-		fmt.Fprintln(os.Stderr, "The go toolchain does not include the WebAssembly exec helper. Use a embeded version.")
+		fmt.Fprintln(os.Stderr, "The go toolchain does not include the WebAssembly exec helper. Use a embedded version.")
 		buf = fallbackWASMExecJS
 	}
 	srv.wasmExecJS = buf
