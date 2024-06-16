@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	_ "embed"
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -21,6 +23,9 @@ import (
 
 //go:embed index.html
 var indexHTML string
+
+//go:embed wasm_exec.js
+var fallbackWASMExecJS []byte
 
 type wasmServer struct {
 	indexTmpl     *template.Template
@@ -57,7 +62,16 @@ func NewWASMServer(wasmFile string, args []string, coverageFile string, l *log.L
 
 	buf, err := os.ReadFile(path.Join(runtime.GOROOT(), "misc/wasm/wasm_exec.js"))
 	if err != nil {
-		return nil, err
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+
+		if !strings.Contains(runtime.GOROOT(), "golang.org"+string(os.PathSeparator)+"toolchain") {
+			return nil, err
+		}
+
+		fmt.Fprintln(os.Stderr, "The go toolchain does not include the WebAssembly exec helper. Use a embeded version.")
+		buf = fallbackWASMExecJS
 	}
 	srv.wasmExecJS = buf
 
