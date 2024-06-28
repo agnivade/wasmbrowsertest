@@ -95,6 +95,8 @@ func run(ctx context.Context, args []string, errOutput io.Writer, flagSet *flag.
 		)
 	}
 
+	opts = append(opts, chromedp.Flag("single-process", true), chromedp.Flag("use-gl", "swiftshader"))
+
 	// create chrome instance
 	allocCtx, cancelAllocCtx := chromedp.NewExecAllocator(ctx, opts...)
 	defer cancelAllocCtx()
