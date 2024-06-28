@@ -61,9 +61,7 @@ func main() {
 			expectErr: "context canceled",
 		},
 	} {
-		tc := tc // enable parallel sub-tests
 		t.Run(tc.description, func(t *testing.T) {
-			t.Parallel()
 			dir := t.TempDir()
 			for fileName, contents := range tc.files {
 				writeFile(t, dir, fileName, contents)
