@@ -199,10 +199,6 @@ func handleEvent(ctx context.Context, ev interface{}, logger *log.Logger) {
 			if details.Exception != nil {
 				fmt.Printf("%s\n", details.Exception.Description)
 			}
-			err := chromedp.Cancel(ctx)
-			if err != nil {
-				logger.Printf("error in cancelling context: %v\n", err)
-			}
 		}
 	case *target.EventTargetCrashed:
 		fmt.Printf("target crashed: status: %s, error code:%d\n", ev.Status, ev.ErrorCode)

@@ -22,7 +22,7 @@ func TestRun(t *testing.T) {
 		expectErr   string
 	}{
 		{
-			description: "panic fails",
+			description: "handle panic",
 			files: map[string]string{
 				"go.mod": `
 module foo
@@ -40,7 +40,7 @@ func main() {
 			expectErr: "exit with status 2",
 		},
 		{
-			description: "panic in next run of event loop fails",
+			description: "handle panic in next run of event loop",
 			files: map[string]string{
 				"go.mod": `
 		module foo
@@ -62,7 +62,34 @@ func main() {
 		}
 		`,
 			},
-			expectErr: "context canceled",
+			expectErr: "",
+		},
+		{
+			description: "handle callback after test exit",
+			files: map[string]string{
+				"go.mod": `
+		module foo
+
+		go 1.20
+		`,
+				"foo.go": `
+		package main
+
+		import (
+			"syscall/js"
+			"fmt"
+		)
+
+		func main() {
+			js.Global().Call("setInterval", js.FuncOf(func(js.Value, []js.Value) any {
+				fmt.Println("callback")
+				return nil
+			}), 5)
+			fmt.Println("done")
+		}
+		`,
+			},
+			expectErr: "",
 		},
 	} {
 		t.Run(tc.description, func(t *testing.T) {
