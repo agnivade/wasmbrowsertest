@@ -98,7 +98,7 @@ func run(ctx context.Context, args []string, errOutput io.Writer, flagSet *flag.
 	// create chrome instance
 	allocCtx, cancelAllocCtx := chromedp.NewExecAllocator(ctx, opts...)
 	defer cancelAllocCtx()
-	ctx, cancelCtx := chromedp.NewContext(allocCtx)
+	ctx, cancelCtx := chromedp.NewContext(allocCtx, chromedp.WithDebugf(logger.Printf))
 	defer cancelCtx()
 
 	chromedp.ListenTarget(ctx, func(ev interface{}) {

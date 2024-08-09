@@ -12,9 +12,9 @@ import (
 )
 
 func TestRun(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping test on Windows. See https://github.com/agnivade/wasmbrowsertest/issues/59")
-	}
+	// if runtime.GOOS == "windows" {
+	// 	t.Skip("Skipping test on Windows. See https://github.com/agnivade/wasmbrowsertest/issues/59")
+	// }
 	for _, tc := range []struct {
 		description string
 		files       map[string]string

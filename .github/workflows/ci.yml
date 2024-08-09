@@ -12,6 +12,8 @@ jobs:
       uses: actions/setup-go@v2
       with:
         go-version: ${{ matrix.go-version }}
+    - name: Install chrome
+      uses: browser-actions/setup-chrome@latest
     - name: Checkout code
       uses: actions/checkout@v2
     - name: Lint
