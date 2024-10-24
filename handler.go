@@ -22,9 +22,6 @@ import (
 //go:embed index.html
 var indexHTML string
 
-//go:embed wasm_exec.js
-var fallbackWASMExecJS []byte
-
 type wasmServer struct {
 	indexTmpl     *template.Template
 	wasmFile      string
@@ -77,8 +74,9 @@ func NewWASMServer(wasmFile string, args []string, coverageFile string, l *log.L
 		if !strings.Contains(runtime.GOROOT(), "golang.org"+string(os.PathSeparator)+"toolchain") {
 			return nil, err
 		}
-		fmt.Fprintln(os.Stderr, "The go toolchain does not include the WebAssembly exec helper before Go 1.24. Use a embedded version.")
-		buf = fallbackWASMExecJS
+		fmt.Fprintln(os.Stderr, "The go toolchain does not include the WebAssembly exec helper before Go 1.24.")
+		fmt.Fprintf(os.Stderr, "You should copy wasm_exec.js to %s\n", filepath.Join(runtime.GOROOT(), "misc", "wasm", "wasm_exec.js"))
+		os.Exit(1)
 	}
 	srv.wasmExecJS = buf
 
