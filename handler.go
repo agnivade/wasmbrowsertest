@@ -70,13 +70,14 @@ func NewWASMServer(wasmFile string, args []string, coverageFile string, l *log.L
 			return nil, err
 		}
 	}
-	if len(buf) == 0 {
-		if !strings.Contains(runtime.GOROOT(), "golang.org"+string(os.PathSeparator)+"toolchain") {
-			return nil, err
+	if err != nil {
+		var perr *os.PathError
+		if errors.As(err, &perr) {
+			if strings.Contains(perr.Path, filepath.Join("golang.org", "toolchain")) {
+				return nil, fmt.Errorf("The Go toolchain does not include the WebAssembly exec helper before Go 1.24. Please copy wasm_exec.js to %s", filepath.Join(runtime.GOROOT(), "misc", "wasm", "wasm_exec.js"))
+			}
 		}
-		fmt.Fprintln(os.Stderr, "The go toolchain does not include the WebAssembly exec helper before Go 1.24.")
-		fmt.Fprintf(os.Stderr, "You should copy wasm_exec.js to %s\n", filepath.Join(runtime.GOROOT(), "misc", "wasm", "wasm_exec.js"))
-		os.Exit(1)
+		return nil, err
 	}
 	srv.wasmExecJS = buf
 
