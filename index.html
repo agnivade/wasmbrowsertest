@@ -74,10 +74,10 @@ license that can be found in the LICENSE file.
 			return fsPath + "/" + path
 		}
 		function overrideFS(fs) {
-			// The fs.constants are read at https://github.com/golang/go/blob/561a5079057e3a660ab638e1ba957a96c4ff3fd1/src/syscall/fs_js.go#L25
-			// These values are pulled from https://github.com/golang/go/blob/561a5079057e3a660ab638e1ba957a96c4ff3fd1/src/syscall/syscall_js.go#L126
+			// The fs.constants are read at https://github.com/golang/go/blob/8071f2a1697c2a8d7e93fb1f45285f18303ddc76/src/syscall/fs_js.go#L25
+			// These values are pulled from https://github.com/golang/go/blob/8071f2a1697c2a8d7e93fb1f45285f18303ddc76/src/syscall/syscall_js.go#L126
 			fs.constants = { O_WRONLY: 1, O_RDWR: 2,
-				O_CREAT: 0o0100, O_TRUNC: 0o01000, O_APPEND: 0o02000, O_EXCL: 0o0200 };
+				O_CREAT: 0o100, O_TRUNC: 0o1000, O_APPEND: 0o2000, O_EXCL: 0o200, O_DIRECTORY: 0o20000 };
 			fs.open = (path, flags, mode, callback) => {
 				fsHandler("open", {path:fsp(path),flags,mode}, (resp) => callback(null, resp.fd), callback);
 			};
