@@ -22,6 +22,12 @@ jobs:
         gofmt -l -s -w .
     - name: Install cleanenv
       run: go install ./cmd/cleanenv
+    - name: Disable AppArmor
+      if: runner.os == 'Linux'
+      run: |
+        # Disable AppArmor for Ubuntu 23.10+.
+        # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
+        echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns
     - name: Test
       run: cleanenv -remove-prefix GITHUB_ -remove-prefix JAVA_ -remove-prefix PSModulePath -remove-prefix STATS_ -remove-prefix RUNNER_ -- go test -v -race -timeout 5m ./...
     - name: Install
