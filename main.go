@@ -87,6 +87,11 @@ func run(ctx context.Context, args []string, errOutput io.Writer, flagSet *flag.
 			chromedp.Flag("headless", false),
 		)
 	}
+	if os.Getenv("WASM_NO_SANDBOX") == "on" {
+		opts = append(opts,
+			chromedp.NoSandbox,
+		)
+	}
 
 	// WSL needs the GPU disabled. See issue #10
 	if runtime.GOOS == "linux" && isWSL() {
