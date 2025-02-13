@@ -1,4 +1,4 @@
-# wasmbrowsertest ![Build Status](https://github.com/agnivade/wasmbrowsertest/actions/workflows/ci.yml/badge.svg?branch=master)
+# wasmbrowsertest [![Build Status](https://github.com/agnivade/wasmbrowsertest/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/agnivade/wasmbrowsertest/actions/workflows/ci.yml)
 
 Run Go wasm tests easily in your browser.
 
