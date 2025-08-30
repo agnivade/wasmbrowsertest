@@ -17,6 +17,42 @@ This tool automates all of that. So you just have to type `GOOS=js GOARCH=wasm g
 - Run tests as usual: `GOOS=js GOARCH=wasm go test`.
 - You can also take a cpu profile. Set the `-cpuprofile` flag for that.
 
+## Example
+
+Here is a simple example of how to use `wasmbrowsertest`.
+
+Let's say you have a file `calculator.go` with the following content:
+
+```go
+package example
+
+func Add(a, b int) int {
+	return a + b
+}
+```
+
+You can write a test for it in `calculator_test.go` like this:
+
+```go
+package example
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+	if Add(1, 2) != 3 {
+		t.Error("1 + 2 should be 3")
+	}
+}
+```
+
+To run the test, you just need to run the following command:
+
+```
+GOOS=js GOARCH=wasm go test
+```
+
+This will compile the test to wasm, and `wasmbrowsertest` will automatically run it in a browser and report the results.
+
 ## Ok, but how does the magic work ?
 
 `go test` allows invocation of a different binary to run a test. `go help test` has a line: 
