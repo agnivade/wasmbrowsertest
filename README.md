@@ -114,6 +114,15 @@ This tool uses the [ChromeDP](https://chromedevtools.github.io/devtools-protocol
 
 Great question. The initial idea was to use a Selenium API and drive any browser to run the tests. But unfortunately, geckodriver does not support the ability to capture console logs - https://github.com/mozilla/geckodriver/issues/284. Hence, the shift to use the ChromeDP protocol circumvents the need to have any external driver binary and just have a browser installed in the machine.
 
+### Usage
+
+```bash
+wasmbrowsertest [wasmbrowsertest flags] <wasm_file> [flags arguments for the wasm file]
+```
+
+**Flags:**
+- `-quiet`: Suppress output for passing tests. Only failed tests and global summary will be shown.
+
 ### A tip on coverage data using go 1.20 or later:
 
 Code coverage changes introduced in go 1.20 produce multiple 
