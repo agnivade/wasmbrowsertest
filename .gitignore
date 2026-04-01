@@ -1,2 +1,5 @@
 # ignore browser drivers
 /go_js_wasm_exec
+/vendor
+/gowasmtest
+/wasmbrowsertest
