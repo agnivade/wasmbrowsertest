@@ -95,6 +95,13 @@ func run(ctx context.Context, args []string, errOutput io.Writer, flagSet *flag.
 		)
 	}
 
+	// Forward the browser's own stdout/stderr
+	// so that startup failures (e.g. websocket timeout reached)
+	// leave some trace of what the browser was doing.
+	if os.Getenv("WASM_BROWSER_OUTPUT") == "on" {
+		opts = append(opts, chromedp.CombinedOutput(errOutput))
+	}
+
 	// create chrome instance
 	allocCtx, cancelAllocCtx := chromedp.NewExecAllocator(ctx, opts...)
 	defer cancelAllocCtx()
