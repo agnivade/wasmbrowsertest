@@ -327,13 +327,23 @@ func Test_doError(t *testing.T) {
 	help.handler.doError("msg", "code", w, nil)
 }
 
+func Test_doErrorContentType(t *testing.T) {
+	help := Helper(t)
+	w := httptest.NewRecorder()
+
+	help.handler.doError("msg", "code", w, nil)
+	if got := w.Result().Header.Get("Content-Type"); got != "application/json" {
+		t.Fatalf("incorrect content type %q", got)
+	}
+}
+
 func Test_okResponse(t *testing.T) {
 	help := Helper(t)
 	w := &httptest.ResponseRecorder{Body: &bytes.Buffer{}}
 	m := help.newMap()
 	help.handler.okResponse(m, w)
 	help.true(w.Body.String() == "{}", "body string did not match")
-	help.true(w.Header().Get("Content-Type") == "application/json", "bad content type header")
+	help.true(w.Result().Header.Get("Content-Type") == "application/json", "bad content type header")
 
 	// test case for bad serialization
 	w = &httptest.ResponseRecorder{Body: &bytes.Buffer{}}

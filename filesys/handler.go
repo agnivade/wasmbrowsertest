@@ -94,8 +94,8 @@ func (fa *Handler) doError(msg, code string, w http.ResponseWriter, err error) {
 
 	e := &ErrorCode{Error: msg, Code: code}
 
-	w.WriteHeader(http.StatusBadRequest)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
 	if err := json.NewEncoder(w).Encode(e); err != nil {
 		fa.logger.Printf("Error encoding json: %v", err)
 	}
@@ -113,8 +113,8 @@ func (fa *Handler) okResponse(data any, w http.ResponseWriter) {
 		fa.logger.Printf("okResponse %s\n", string(marshal))
 	}
 
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	if _, err = w.Write(marshal); err != nil {
 		fa.logger.Printf("Error writing json: %v", err)
 	}
